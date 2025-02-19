@@ -1,0 +1,216 @@
+/* ==========================================================================
+   Component Styles
+   Implements Material Design principles with responsive design and accessibility
+   Version: 1.0.0
+   ========================================================================== */
+
+@import './variables.css';
+@import './themes.css';
+
+/* Button
+   Base button component with accessibility and responsive design
+   ========================================================================== */
+.button {
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-radius: var(--spacing-sm);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-medium);
+  transition: all var(--transition-duration-normal) var(--transition-timing-ease);
+  cursor: pointer;
+  min-height: 44px;
+  min-width: 44px;
+  background: var(--background-paper);
+  color: var(--text-primary);
+  border: 1px solid var(--divider);
+}
+
+.button:hover:not(:disabled) {
+  background: var(--action-hover);
+}
+
+.button:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.button--loading {
+  position: relative;
+  color: transparent;
+  pointer-events: none;
+}
+
+/* Microphone Button
+   Circular button with active and error states
+   ========================================================================== */
+.microphone-button {
+  width: var(--mic-button-size);
+  height: var(--mic-button-size);
+  border-radius: 50%;
+  background: var(--mic-button-bg-inactive);
+  box-shadow: var(--shadow-md);
+  transition: all var(--transition-duration-normal) var(--transition-timing-bounce);
+  min-height: 56px;
+  min-width: 56px;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.microphone-button--active {
+  background: var(--mic-button-bg-active);
+  transform: scale(1.1);
+  animation: pulse 1.5s infinite;
+}
+
+.microphone-button--error {
+  background: var(--color-error);
+  animation: shake 0.5s;
+}
+
+@media (max-width: var(--breakpoint-tablet)) {
+  .microphone-button {
+    width: var(--mic-button-size-mobile);
+    height: var(--mic-button-size-mobile);
+  }
+}
+
+/* Voice Activity Display
+   Animated waveform visualization
+   ========================================================================== */
+.voice-activity-display {
+  height: var(--wave-height);
+  background: var(--wave-color-inactive);
+  border-radius: var(--spacing-sm);
+  overflow: hidden;
+  transition: height 0.3s ease;
+}
+
+.voice-activity-display--active {
+  background: var(--wave-color-active);
+  animation: wave 1s infinite;
+}
+
+.voice-activity-display--loading {
+  background: var(--wave-color-inactive);
+  animation: pulse 1.5s infinite;
+}
+
+@media (max-width: var(--breakpoint-tablet)) {
+  .voice-activity-display {
+    height: var(--wave-height-mobile);
+  }
+}
+
+/* Message Bubbles
+   Chat message containers with user/AI/system variants
+   ========================================================================== */
+.message-bubble {
+  padding: var(--message-padding-x) var(--message-padding-y);
+  border-radius: var(--message-border-radius);
+  max-width: var(--message-max-width);
+  margin-bottom: var(--spacing-md);
+  animation: fadeIn 0.3s ease-in;
+  word-wrap: break-word;
+}
+
+.message-bubble--user {
+  background: var(--message-user-bg);
+  color: var(--color-text-primary);
+  align-self: flex-end;
+  border-bottom-right-radius: 0;
+}
+
+.message-bubble--ai {
+  background: var(--message-ai-bg);
+  color: var(--color-text-primary);
+  align-self: flex-start;
+  border-bottom-left-radius: 0;
+}
+
+.message-bubble--system {
+  background: var(--background-paper);
+  color: var(--text-secondary);
+  align-self: center;
+  font-style: italic;
+  max-width: 60%;
+}
+
+/* Input Field
+   Text input with accessibility and validation states
+   ========================================================================== */
+.input-field {
+  padding: var(--spacing-md);
+  border-radius: var(--spacing-sm);
+  border: 1px solid var(--divider);
+  background: var(--background-paper);
+  color: var(--text-primary);
+  font-size: var(--font-size-md);
+  transition: all var(--transition-duration-normal) var(--transition-timing-ease);
+  min-height: 44px;
+  width: 100%;
+  position: relative;
+}
+
+.input-field:focus {
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-sm);
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.input-field--error {
+  border-color: var(--color-error);
+  background: var(--color-error-light);
+}
+
+.input-field__character-count {
+  position: absolute;
+  right: var(--spacing-sm);
+  bottom: var(--spacing-xs);
+  font-size: var(--font-size-sm);
+  color: var(--text-secondary);
+}
+
+/* Animations
+   Reusable keyframe animations for component states
+   ========================================================================== */
+@keyframes pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
+
+@keyframes wave {
+  0% { transform: scaleY(1); }
+  50% { transform: scaleY(1.5); }
+  100% { transform: scaleY(1); }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  75% { transform: translateX(5px); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Reduced Motion
+   Respects user preference for reduced motion
+   ========================================================================== */
+@media (prefers-reduced-motion: reduce) {
+  .microphone-button,
+  .voice-activity-display,
+  .message-bubble {
+    animation: none;
+    transition: none;
+  }
+}
