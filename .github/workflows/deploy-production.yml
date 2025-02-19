@@ -1,0 +1,206 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'src/**'
+      - 'infrastructure/**'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to deploy'
+        required: true
+        type: string
+      region:
+        description: 'Target AWS region'
+        required: true
+        type: string
+
+concurrency:
+  group: production
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: ${{ github.event.inputs.region || 'us-west-2' }}
+  EKS_CLUSTER_NAME: voice-agent-prod
+  ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ github.event.inputs.region || 'us-west-2' }}.amazonaws.com
+  PRODUCTION_NAMESPACE: voice-agent-backend
+  CDN_DISTRIBUTION_ID: ${{ secrets.CDN_DISTRIBUTION_ID }}
+  SERVICE_MESH_CONFIG: istio-system
+
+jobs:
+  prepare:
+    name: Prepare Deployment
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://voice-agent.example.com
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Set version
+        id: version
+        run: |
+          VERSION=${{ github.event.inputs.version || github.sha }}
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v1
+        with:
+          mask-password: true
+
+  deploy-backend:
+    name: Deploy Backend Services
+    needs: prepare
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup kubectl
+        run: |
+          aws eks update-kubeconfig --name ${{ env.EKS_CLUSTER_NAME }} --region ${{ env.AWS_REGION }}
+
+      - name: Validate Infrastructure
+        run: |
+          kubectl get nodes -o wide
+          kubectl get namespace ${{ env.PRODUCTION_NAMESPACE }}
+          kubectl describe configmap app-config -n ${{ env.PRODUCTION_NAMESPACE }}
+
+      - name: Update Service Mesh Config
+        run: |
+          kubectl apply -f infrastructure/kubernetes/base/namespace.yaml
+          kubectl apply -f infrastructure/kubernetes/base/configmap.yaml
+          kubectl apply -f infrastructure/kubernetes/base/secrets.yaml
+
+      - name: Deploy Canary
+        run: |
+          CANARY_WEIGHT=5
+          kubectl set image deployment/voice-agent-backend \
+            voice-agent-backend=${{ env.ECR_REGISTRY }}/voice-agent-backend:${{ needs.prepare.outputs.version }} \
+            -n ${{ env.PRODUCTION_NAMESPACE }}
+          kubectl patch service voice-agent-backend -n ${{ env.PRODUCTION_NAMESPACE }} \
+            -p '{"spec":{"trafficPolicy":{"canary":{"weight":'"${CANARY_WEIGHT}"'}}}}'
+
+      - name: Monitor Canary Health
+        run: |
+          for i in {1..10}; do
+            kubectl get pods -n ${{ env.PRODUCTION_NAMESPACE }} -l app=voice-agent,tier=backend
+            sleep 60
+          done
+
+      - name: Progressive Rollout
+        run: |
+          for weight in 20 40 60 80 100; do
+            kubectl patch service voice-agent-backend -n ${{ env.PRODUCTION_NAMESPACE }} \
+              -p '{"spec":{"trafficPolicy":{"canary":{"weight":'"${weight}"'}}}}'
+            sleep 300
+          done
+
+      - name: Verify Deployment
+        run: |
+          kubectl rollout status deployment/voice-agent-backend -n ${{ env.PRODUCTION_NAMESPACE }} --timeout=600s
+
+  deploy-frontend:
+    name: Deploy Frontend
+    needs: [prepare, deploy-backend]
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Deploy Frontend
+        run: |
+          kubectl apply -f infrastructure/kubernetes/web/deployment.yaml
+          kubectl set image deployment/voice-agent-web \
+            web=${{ env.ECR_REGISTRY }}/voice-agent-web:${{ needs.prepare.outputs.version }} \
+            -n voice-agent-frontend
+
+      - name: Update CDN
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id ${{ env.CDN_DISTRIBUTION_ID }} \
+            --paths "/*"
+
+      - name: Verify Frontend Deployment
+        run: |
+          kubectl rollout status deployment/voice-agent-web -n voice-agent-frontend --timeout=300s
+
+  verify:
+    name: Verify Deployment
+    needs: [deploy-backend, deploy-frontend]
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Health Check
+        run: |
+          curl -f https://voice-agent.example.com/health
+          curl -f https://api.voice-agent.example.com/health
+
+      - name: Load Testing
+        run: |
+          for i in {1..10}; do
+            curl -f https://api.voice-agent.example.com/ready
+            sleep 2
+          done
+
+      - name: Report to Datadog
+        uses: datadog/action-datadog-reporting@v1
+        with:
+          api-key: ${{ secrets.DATADOG_API_KEY }}
+          metrics: |
+            deployment.success:1|c|#env:production,version:${{ needs.prepare.outputs.version }}
+
+  rollback:
+    name: Rollback
+    needs: [prepare, deploy-backend, deploy-frontend]
+    runs-on: ubuntu-latest
+    environment: production
+    if: failure()
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Rollback Backend
+        run: |
+          kubectl rollout undo deployment/voice-agent-backend -n ${{ env.PRODUCTION_NAMESPACE }}
+
+      - name: Rollback Frontend
+        run: |
+          kubectl rollout undo deployment/voice-agent-web -n voice-agent-frontend
+
+      - name: Notify Rollback
+        run: |
+          curl -X POST -H 'Content-type: application/json' \
+            --data '{"text":"Production deployment failed and was rolled back"}' \
+            ${{ secrets.SLACK_WEBHOOK_URL }}
