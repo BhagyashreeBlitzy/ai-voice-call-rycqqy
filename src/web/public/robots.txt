@@ -1,0 +1,32 @@
+# Version: 1.0
+# Last Updated: 2024
+
+# Global rules for all web crawlers
+User-agent: *
+
+# Crawl-delay to prevent server overload
+Crawl-delay: 10
+
+# Allowed paths - public content
+Allow: /
+Allow: /index.html
+Allow: /manifest.json
+Allow: /static/
+Allow: /assets/
+Allow: /images/
+
+# Disallowed paths - protected routes
+Disallow: /api/
+Disallow: /ws/
+Disallow: /settings
+Disallow: /conversation
+Disallow: /auth/
+Disallow: /user/
+Disallow: /voice/
+Disallow: /stream/
+
+# Sitemap location
+Sitemap: https://example.com/sitemap.xml
+
+# Additional security headers (for compatible crawlers)
+X-Robots-Tag: noarchive, noimageindex
