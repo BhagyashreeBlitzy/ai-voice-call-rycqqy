@@ -1,0 +1,139 @@
+{
+  "app": {
+    "title": "AI Voice Agent",
+    "description": "Real-time voice conversations with AI",
+    "welcome": "Welcome to AI Voice Agent",
+    "loading": "Loading...",
+    "version": "Version {{version}}",
+    "copyright": "© {{year}} AI Voice Agent",
+    "tagline": "Your intelligent voice assistant",
+    "terms": "Terms of Service",
+    "privacy": "Privacy Policy"
+  },
+  "navigation": {
+    "home": "Home",
+    "conversation": "Conversation",
+    "settings": "Settings",
+    "help": "Help",
+    "profile": "Profile",
+    "logout": "Logout",
+    "back_to_top": "Back to top",
+    "skip_to_content": "Skip to main content"
+  },
+  "conversation": {
+    "start": "Start Conversation",
+    "end": "End Conversation",
+    "listening": "Listening...",
+    "processing": "Processing...",
+    "speaking": "Speaking...",
+    "idle": "Click microphone to start",
+    "clear": "Clear History",
+    "copy": "Copy Text",
+    "download": "Download Recording",
+    "mute": "Mute",
+    "unmute": "Unmute",
+    "history_empty": "No conversation history",
+    "character_count": "{{current}}/{{max}} characters",
+    "save_conversation": "Save Conversation",
+    "export_format": "Export as {{format}}"
+  },
+  "voice": {
+    "mic_permission": "Allow microphone access",
+    "mic_setup": "Setting up microphone...",
+    "mic_ready": "Microphone ready",
+    "mic_error": "Microphone error: {{message}}",
+    "quality": {
+      "excellent": "Excellent signal",
+      "good": "Good signal",
+      "fair": "Fair signal",
+      "poor": "Poor signal"
+    },
+    "volume": {
+      "too_loud": "Speaking too loud",
+      "too_quiet": "Speaking too quietly",
+      "perfect": "Volume perfect"
+    },
+    "noise": {
+      "high": "High background noise",
+      "medium": "Some background noise",
+      "low": "Clean audio signal"
+    }
+  },
+  "actions": {
+    "submit": "Submit",
+    "cancel": "Cancel",
+    "save": "Save",
+    "delete": "Delete",
+    "edit": "Edit",
+    "confirm": "Confirm",
+    "back": "Back",
+    "next": "Next",
+    "finish": "Finish",
+    "try_again": "Try Again",
+    "learn_more": "Learn More",
+    "got_it": "Got It",
+    "dismiss": "Dismiss",
+    "apply": "Apply Changes"
+  },
+  "status": {
+    "online": "Online",
+    "offline": "Offline",
+    "connecting": "Connecting...",
+    "connected": "Connected",
+    "disconnected": "Disconnected",
+    "ready": "Ready",
+    "busy": "Busy",
+    "error": "Error",
+    "retrying": "Retrying in {{seconds}} seconds",
+    "reconnected": "Connection restored"
+  },
+  "tooltips": {
+    "mic_button": "Click to start speaking",
+    "settings_button": "Open settings",
+    "clear_history": "Clear conversation history",
+    "volume_control": "Adjust volume",
+    "copy_text": "Copy to clipboard",
+    "download_audio": "Download audio recording",
+    "noise_level": "Current noise level: {{level}}",
+    "signal_strength": "Signal strength: {{strength}}",
+    "connection_status": "Connection status: {{status}}"
+  },
+  "accessibility": {
+    "mic_button": "Microphone button, {{state}}",
+    "settings_menu": "Settings menu",
+    "volume_slider": "Volume control, {{value}} percent",
+    "navigation_menu": "Navigation menu",
+    "conversation_history": "Conversation history",
+    "loading_indicator": "Loading indicator",
+    "alert": "Alert: {{message}}",
+    "dialog": "Dialog: {{title}}",
+    "region": "Region: {{name}}",
+    "live_region": "Status updates"
+  },
+  "errors": {
+    "mic_access_denied": "Microphone access denied. Please allow access in your browser settings.",
+    "connection_lost": "Connection lost. Attempting to reconnect...",
+    "api_error": "Service error: {{message}}",
+    "invalid_input": "Invalid input: {{field}}",
+    "session_expired": "Your session has expired. Please log in again.",
+    "unsupported_browser": "Your browser is not supported. Please use a modern browser.",
+    "storage_full": "Local storage is full. Please clear some space."
+  },
+  "i18n_metadata": {
+    "language": "en",
+    "namespace": "common",
+    "fallback_language": "en",
+    "rtl": false,
+    "version": "1.0.0",
+    "last_updated": "2024-01-01",
+    "plural_forms": "nplurals=2; plural=(n != 1);",
+    "format_options": {
+      "date": "MM/DD/YYYY",
+      "time": "HH:mm:ss",
+      "number": {
+        "decimal": ".",
+        "thousands": ","
+      }
+    }
+  }
+}
