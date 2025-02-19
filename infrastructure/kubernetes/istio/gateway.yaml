@@ -1,0 +1,48 @@
+apiVersion: networking.istio.io/v1beta1
+kind: Gateway
+metadata:
+  name: voice-agent-gateway
+  namespace: istio-system
+  labels:
+    app: voice-agent
+    component: gateway
+    version: v1
+    part-of: voice-agent-system
+    managed-by: istio
+  annotations:
+    monitoring.istio.io/scrape: "true"
+    monitoring.istio.io/port: "15020"
+    cert-manager.io/renewal-check: "true"
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+    # HTTPS configuration for regular web traffic
+    - port:
+        number: 443
+        name: https
+        protocol: HTTPS
+      hosts:
+        - "*"
+      tls:
+        mode: SIMPLE
+        credentialName: voice-agent-tls
+        minProtocolVersion: TLSV1_3
+        cipherSuites:
+          - ECDHE-ECDSA-AES256-GCM-SHA384
+          - ECDHE-RSA-AES256-GCM-SHA384
+    
+    # WebSocket Secure (WSS) configuration for real-time voice communication
+    - port:
+        number: 443
+        name: wss
+        protocol: HTTPS
+      hosts:
+        - "*"
+      tls:
+        mode: SIMPLE
+        credentialName: voice-agent-tls
+        minProtocolVersion: TLSV1_3
+        cipherSuites:
+          - ECDHE-ECDSA-AES256-GCM-SHA384
+          - ECDHE-RSA-AES256-GCM-SHA384
