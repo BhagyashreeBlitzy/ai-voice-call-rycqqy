@@ -1,0 +1,216 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-config
+  namespace: voice-agent-monitoring
+  labels:
+    app: prometheus
+    part-of: voice-agent
+    tier: monitoring
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: 15s
+      evaluation_interval: 15s
+      external_labels:
+        environment: production
+
+    rule_files:
+      - /etc/prometheus/rules/*.yml
+
+    scrape_configs:
+      - job_name: 'voice-agent-backend'
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names: ['voice-agent-backend']
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_label_app]
+            action: keep
+            regex: voice-agent
+          - source_labels: [__meta_kubernetes_pod_container_port_name]
+            action: keep
+            regex: metrics
+
+      - job_name: 'voice-agent-frontend'
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names: ['voice-agent-frontend']
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_label_app]
+            action: keep
+            regex: voice-agent
+          - source_labels: [__meta_kubernetes_pod_container_port_name]
+            action: keep
+            regex: metrics
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-rules
+  namespace: voice-agent-monitoring
+  labels:
+    app: prometheus
+    part-of: voice-agent
+    tier: monitoring
+data:
+  voice_agent_alerts.yml: |
+    groups:
+      - name: voice_agent_alerts
+        rules:
+        - alert: HighLatency
+          expr: speech_recognition_duration_seconds > 0.5
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            description: Speech recognition latency is above 500ms threshold
+            
+        - alert: HighErrorRate
+          expr: rate(http_requests_total{status=~"5.."}[5m]) > 0.1
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            description: Error rate is above 10% threshold
+            
+        - alert: LowUptime
+          expr: up == 0
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            description: Service is down
+
+        - alert: LowSpeechRecognitionAccuracy
+          expr: speech_recognition_accuracy < 95
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            description: Speech recognition accuracy is below 95% threshold
+
+        - alert: HighEndToEndLatency
+          expr: voice_synthesis_duration_seconds + speech_recognition_duration_seconds > 2
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            description: End-to-end voice processing latency is above 2 seconds
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: prometheus-storage
+  namespace: voice-agent-monitoring
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 50Gi
+  storageClassName: standard
+
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: prometheus
+  namespace: voice-agent-monitoring
+  labels:
+    app: prometheus
+    part-of: voice-agent
+    tier: monitoring
+spec:
+  serviceName: prometheus
+  replicas: 1
+  selector:
+    matchLabels:
+      app: prometheus
+  template:
+    metadata:
+      labels:
+        app: prometheus
+    spec:
+      securityContext:
+        fsGroup: 65534
+        runAsUser: 65534
+        runAsNonRoot: true
+      containers:
+        - name: prometheus
+          image: prom/prometheus:v2.45.0
+          args:
+            - --config.file=/etc/prometheus/prometheus.yml
+            - --storage.tsdb.path=/prometheus
+            - --storage.tsdb.retention.time=15d
+            - --web.console.libraries=/usr/share/prometheus/console_libraries
+            - --web.console.templates=/usr/share/prometheus/consoles
+            - --web.enable-lifecycle
+          ports:
+            - name: metrics
+              containerPort: 9090
+          livenessProbe:
+            httpGet:
+              path: /-/healthy
+              port: 9090
+            initialDelaySeconds: 30
+            timeoutSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /-/ready
+              port: 9090
+            initialDelaySeconds: 30
+            timeoutSeconds: 30
+          resources:
+            requests:
+              cpu: 500m
+              memory: 2Gi
+            limits:
+              cpu: 1000m
+              memory: 4Gi
+          volumeMounts:
+            - name: prometheus-config
+              mountPath: /etc/prometheus
+            - name: prometheus-rules
+              mountPath: /etc/prometheus/rules
+            - name: prometheus-storage
+              mountPath: /prometheus
+      volumes:
+        - name: prometheus-config
+          configMap:
+            name: prometheus-config
+        - name: prometheus-rules
+          configMap:
+            name: prometheus-rules
+  volumeClaimTemplates:
+    - metadata:
+        name: prometheus-storage
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        resources:
+          requests:
+            storage: 50Gi
+        storageClassName: standard
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus
+  namespace: voice-agent-monitoring
+  labels:
+    app: prometheus
+    part-of: voice-agent
+    tier: monitoring
+spec:
+  ports:
+    - name: metrics
+      port: 9090
+      targetPort: metrics
+  selector:
+    app: prometheus
+  type: ClusterIP
