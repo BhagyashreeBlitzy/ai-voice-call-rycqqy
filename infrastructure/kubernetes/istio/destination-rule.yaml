@@ -1,0 +1,79 @@
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: voice-agent-backend
+  namespace: istio-system
+  labels:
+    app: voice-agent
+    component: traffic-policy
+    tier: backend
+    managed-by: istio
+  annotations:
+    description: Traffic policy for voice agent backend service
+    last-updated: '2024-01-20'
+    monitoring.istio.io/scrape: 'true'
+spec:
+  host: voice-agent-backend.voice-agent-backend.svc.cluster.local
+  trafficPolicy:
+    loadBalancer:
+      simple: ROUND_ROBIN
+    connectionPool:
+      tcp:
+        maxConnections: 100
+        connectTimeout: '5s'
+        tcpKeepalive:
+          time: '7200s'
+          interval: '75s'
+          probes: 10
+      http:
+        http1MaxPendingRequests: 100
+        maxRequestsPerConnection: 10
+        maxRetries: 3
+        idleTimeout: '30s'
+        h2MaxRequests: 1000
+    outlierDetection:
+      consecutive5xxErrors: 5
+      interval: '30s'
+      baseEjectionTime: '30s'
+      maxEjectionPercent: 10
+      minHealthPercent: 50
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: voice-agent-web
+  namespace: istio-system
+  labels:
+    app: voice-agent
+    component: traffic-policy
+    tier: frontend
+    managed-by: istio
+  annotations:
+    description: Traffic policy for voice agent web frontend
+    last-updated: '2024-01-20'
+    monitoring.istio.io/scrape: 'true'
+spec:
+  host: voice-agent-web.voice-agent-frontend.svc.cluster.local
+  trafficPolicy:
+    loadBalancer:
+      simple: ROUND_ROBIN
+    connectionPool:
+      tcp:
+        maxConnections: 50
+        connectTimeout: '3s'
+        tcpKeepalive:
+          time: '7200s'
+          interval: '75s'
+          probes: 10
+      http:
+        http1MaxPendingRequests: 50
+        maxRequestsPerConnection: 10
+        maxRetries: 2
+        idleTimeout: '30s'
+        h2MaxRequests: 500
+    outlierDetection:
+      consecutive5xxErrors: 5
+      interval: '30s'
+      baseEjectionTime: '30s'
+      maxEjectionPercent: 10
+      minHealthPercent: 50
