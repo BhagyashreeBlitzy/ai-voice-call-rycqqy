@@ -1,0 +1,39 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: voice-agent-web
+  namespace: voice-agent-frontend
+  labels:
+    app: voice-agent
+    tier: frontend
+    component: web
+    app.kubernetes.io/name: voice-agent-web
+    app.kubernetes.io/version: 1.0.0
+    app.kubernetes.io/component: frontend
+    app.kubernetes.io/managed-by: kubernetes
+  annotations:
+    prometheus.io/scrape: 'true'
+    prometheus.io/port: '8081'
+    prometheus.io/path: '/metrics'
+    sidecar.istio.io/inject: 'true'
+    service.istio.io/canonical-name: 'voice-agent-web'
+    service.istio.io/canonical-revision: 'v1'
+spec:
+  type: ClusterIP
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80
+      protocol: TCP
+    - name: health
+      port: 8081
+      targetPort: 8081
+      protocol: TCP
+  selector:
+    app: voice-agent
+    tier: frontend
+    component: web
+  sessionAffinity: ClientIP
+  sessionAffinityConfig:
+    clientIP:
+      timeoutSeconds: 10800
