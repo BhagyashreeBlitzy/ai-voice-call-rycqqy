@@ -1,0 +1,59 @@
+{
+  "system": {
+    "internal_error": "An unexpected error occurred. Please try again.",
+    "service_unavailable": "Service is temporarily unavailable. Please try again later.",
+    "maintenance": "System is under maintenance. Please check back soon.",
+    "version_mismatch": "Please refresh your browser for the latest version.",
+    "browser_unsupported": "Your browser is not fully supported. Please use a modern browser."
+  },
+  "auth": {
+    "unauthorized": "Please sign in to continue.",
+    "session_expired": "Your session has expired. Please sign in again.",
+    "invalid_credentials": "Invalid email or password.",
+    "access_denied": "You don't have permission to access this resource.",
+    "token_expired": "Authentication expired. Please sign in again."
+  },
+  "audio": {
+    "device_error": "Unable to access microphone. Please check your device permissions.",
+    "no_input_device": "No microphone found. Please connect a microphone and try again.",
+    "recording_failed": "Failed to start recording. Please check your microphone.",
+    "playback_error": "Unable to play audio. Please check your speakers.",
+    "speech_recognition_error": "Failed to recognize speech. Please try again.",
+    "voice_synthesis_error": "Failed to generate voice response. Please try again.",
+    "audio_processing_error": "Error processing audio. Please try again."
+  },
+  "network": {
+    "connection_lost": "Connection lost. Attempting to reconnect...",
+    "websocket_error": "WebSocket connection error. Retrying...",
+    "slow_connection": "Slow network connection detected.",
+    "request_timeout": "Request timed out. Please check your connection.",
+    "rate_limit": "Too many requests. Please wait before trying again."
+  },
+  "validation": {
+    "required_field": "{{field}} is required",
+    "invalid_format": "Invalid {{field}} format",
+    "max_length": "{{field}} exceeds maximum length of {{max}} characters",
+    "min_length": "{{field}} must be at least {{min}} characters",
+    "invalid_value": "Invalid value for {{field}}"
+  },
+  "recovery": {
+    "retry": "Retry",
+    "refresh": "Refresh Page",
+    "contact_support": "Contact Support",
+    "clear_data": "Clear Data",
+    "check_settings": "Check Settings"
+  },
+  "messages": {
+    "error_occurred": "An error occurred",
+    "try_again": "Please try again",
+    "contact_admin": "Please contact administrator",
+    "check_connection": "Please check your connection",
+    "reload_required": "Reload required"
+  },
+  "i18n_metadata": {
+    "language": "en",
+    "namespace": "errors",
+    "fallback_language": "en",
+    "rtl": false
+  }
+}
