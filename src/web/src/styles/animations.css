@@ -1,0 +1,218 @@
+/* ==========================================================================
+   Animation Definitions
+   Provides optimized keyframe animations and utility classes for visual feedback
+   Version: 1.0.0
+   ========================================================================== */
+
+@import './variables.css';
+
+/* Base Animation Properties
+   ========================================================================== */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Keyframe Definitions
+   Hardware-accelerated animations with performance optimizations
+   ========================================================================== */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    will-change: opacity;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+    will-change: opacity;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+    will-change: transform;
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes wave {
+  0% {
+    transform: scaleY(0.5);
+    will-change: transform;
+  }
+  50% {
+    transform: scaleY(1);
+  }
+  100% {
+    transform: scaleY(0.5);
+  }
+}
+
+@keyframes rotate {
+  from {
+    transform: rotate(0deg);
+    will-change: transform;
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+    will-change: transform, opacity;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes ripple {
+  0% {
+    transform: scale(0);
+    opacity: 1;
+    will-change: transform, opacity;
+  }
+  100% {
+    transform: scale(4);
+    opacity: 0;
+  }
+}
+
+/* Animation Utility Classes
+   Performance-optimized classes with accessibility considerations
+   ========================================================================== */
+.fade-in {
+  animation: fadeIn var(--transition-duration-normal) var(--transition-timing-ease) forwards;
+  backface-visibility: hidden;
+}
+
+.fade-out {
+  animation: fadeOut var(--transition-duration-normal) var(--transition-timing-ease) forwards;
+  backface-visibility: hidden;
+}
+
+.pulse {
+  animation: pulse 1s var(--transition-timing-ease) infinite;
+  backface-visibility: hidden;
+}
+
+.wave {
+  animation: wave var(--wave-animation-duration) var(--transition-timing-ease) infinite;
+  transform-origin: bottom;
+  backface-visibility: hidden;
+}
+
+.rotate {
+  animation: rotate 1s var(--transition-timing-ease) infinite linear;
+  backface-visibility: hidden;
+}
+
+.slide-in {
+  animation: slideIn var(--transition-duration-normal) var(--transition-timing-bounce) forwards;
+  backface-visibility: hidden;
+}
+
+.ripple {
+  animation: ripple var(--transition-duration-slow) var(--transition-timing-ease) forwards;
+  backface-visibility: hidden;
+}
+
+/* Microphone Button Animation States
+   ========================================================================== */
+.mic-button-active {
+  animation: pulse 1.5s var(--transition-timing-ease) infinite;
+  background-color: var(--mic-button-bg-active);
+}
+
+.mic-button-error {
+  animation: shake 0.5s var(--transition-timing-ease);
+  background-color: var(--mic-button-bg-error);
+}
+
+/* Voice Wave Visualization
+   ========================================================================== */
+.wave-bar {
+  animation: wave var(--wave-animation-duration) var(--transition-timing-ease) infinite;
+  background-color: var(--wave-color-active);
+  transform-origin: bottom;
+}
+
+.wave-bar:nth-child(2n) {
+  animation-delay: 0.2s;
+}
+
+.wave-bar:nth-child(3n) {
+  animation-delay: 0.4s;
+}
+
+/* Message Animation States
+   ========================================================================== */
+.message-enter {
+  animation: slideIn var(--transition-duration-normal) var(--transition-timing-bounce) forwards;
+}
+
+.message-exit {
+  animation: fadeOut var(--transition-duration-fast) var(--transition-timing-ease) forwards;
+}
+
+/* Loading States
+   ========================================================================== */
+.loading-spinner {
+  animation: rotate 1s var(--transition-timing-ease) infinite linear;
+}
+
+.loading-dots::after {
+  animation: ellipsis 1.5s var(--transition-timing-ease) infinite;
+}
+
+/* Utility Modifiers
+   ========================================================================== */
+.animation-paused {
+  animation-play-state: paused !important;
+}
+
+.animation-running {
+  animation-play-state: running !important;
+}
+
+.animation-once {
+  animation-iteration-count: 1 !important;
+}
+
+.animation-twice {
+  animation-iteration-count: 2 !important;
+}
+
+.animation-thrice {
+  animation-iteration-count: 3 !important;
+}
+
+/* Performance Optimizations
+   ========================================================================== */
+.gpu-accelerated {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  perspective: 1000px;
+}
