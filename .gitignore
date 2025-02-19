@@ -1,0 +1,51 @@
+node_modules/
+.pnpm-store/
+.npm/
+package-lock.json
+yarn.lock
+
+# Environment
+.env
+.env.*
+
+# Build outputs
+dist/
+build/
+coverage/
+.nyc_output/
+test-report/
+junit.xml
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# System files
+.DS_Store
+*.log
+
+# Security
+*.pem
+*.key
+*.cert
+
+# Infrastructure
+terraform.tfstate*
+.terraform/
+*.tfvars
+.kube/
+.docker/
+*.local.yaml
+
+# Temporary
+tmp/
+temp/
+*.tmp
+
+# Logs and reports
+*.log
+coverage/
+test-report/
+junit.xml
