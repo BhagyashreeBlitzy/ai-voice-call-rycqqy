@@ -1,0 +1,113 @@
+{
+  "title": "Settings",
+  "sections": {
+    "audio": {
+      "title": "Audio Settings",
+      "inputVolume": {
+        "label": "Input Volume",
+        "description": "Adjust microphone sensitivity for optimal voice recognition",
+        "tooltip": "Drag slider to adjust how sensitive your microphone is to input"
+      },
+      "outputVolume": {
+        "label": "Output Volume",
+        "description": "Control AI voice response volume",
+        "tooltip": "Adjust how loud the AI voice responses are"
+      },
+      "noiseReduction": {
+        "label": "Noise Reduction",
+        "description": "Filter out background noise during recording",
+        "tooltip": "Higher settings remove more background noise but may affect voice quality",
+        "levels": {
+          "off": "Off",
+          "low": "Low",
+          "medium": "Medium",
+          "high": "High"
+        }
+      },
+      "vadThreshold": {
+        "label": "Voice Activity Detection",
+        "description": "Set sensitivity for detecting when you're speaking",
+        "tooltip": "Lower values detect quieter speech but may trigger more false positives",
+        "sensitivity": {
+          "low": "Low Sensitivity",
+          "medium": "Medium Sensitivity",
+          "high": "High Sensitivity"
+        }
+      }
+    },
+    "voice": {
+      "title": "Voice Settings",
+      "voiceSelection": {
+        "label": "Voice Selection",
+        "description": "Choose the AI assistant's voice",
+        "tooltip": "Select different voices for the AI responses"
+      },
+      "voices": {
+        "male1": "James (Male)",
+        "male2": "Michael (Male)",
+        "female1": "Sarah (Female)",
+        "female2": "Emma (Female)",
+        "neutral": "Alex (Gender Neutral)"
+      },
+      "speakingRate": {
+        "label": "Speaking Rate",
+        "description": "Adjust how fast the AI speaks",
+        "tooltip": "Control the speed of AI voice responses",
+        "speeds": {
+          "verySlow": "Very Slow",
+          "slow": "Slow",
+          "normal": "Normal",
+          "fast": "Fast",
+          "veryFast": "Very Fast"
+        }
+      },
+      "pitch": {
+        "label": "Voice Pitch",
+        "description": "Adjust the pitch of the AI voice",
+        "tooltip": "Fine-tune how high or low the AI voice sounds",
+        "levels": {
+          "veryLow": "Very Low",
+          "low": "Low",
+          "medium": "Medium",
+          "high": "High",
+          "veryHigh": "Very High"
+        }
+      }
+    },
+    "language": {
+      "title": "Language Settings",
+      "primaryLanguage": {
+        "label": "Primary Language",
+        "description": "Select your preferred interface language",
+        "tooltip": "Choose the main language for the application interface"
+      },
+      "secondaryLanguage": {
+        "label": "Secondary Language",
+        "description": "Choose a backup language",
+        "tooltip": "Optional secondary language for fallback support",
+        "none": "None"
+      },
+      "rtl": {
+        "label": "Right-to-Left Text",
+        "description": "Enable right-to-left text display",
+        "tooltip": "Switch text direction for RTL languages like Arabic or Hebrew"
+      }
+    }
+  },
+  "buttons": {
+    "save": "Save Changes",
+    "cancel": "Cancel",
+    "reset": "Reset to Defaults",
+    "apply": "Apply Changes"
+  },
+  "messages": {
+    "saveSuccess": "Settings saved successfully",
+    "saveError": "Error saving settings. Please try again.",
+    "resetConfirm": "Are you sure you want to reset all settings to their default values?",
+    "unsavedChanges": "You have unsaved changes. Do you want to save them before leaving?",
+    "audioPermissionDenied": "Microphone access is required for voice input",
+    "browserNotSupported": "Your browser doesn't support all required features",
+    "settingsLoadError": "Error loading settings. Using defaults.",
+    "validationError": "Please correct the invalid settings highlighted in red"
+  }
+}
