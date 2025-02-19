@@ -1,0 +1,145 @@
+name: Backend CI
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'src/backend/**'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'src/backend/**'
+
+concurrency:
+  group: backend-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_ENV: test
+  POSTGRES_USER: postgres
+  POSTGRES_PASSWORD: postgres
+  POSTGRES_DB: test
+  POSTGRES_HOST: localhost
+  REDIS_HOST: localhost
+  REDIS_PORT: 6379
+
+jobs:
+  build-and-test:
+    name: Build and Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+          cache-dependency-path: src/backend/pnpm-lock.yaml
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+          run_install: false
+
+      - name: Get pnpm store directory
+        id: pnpm-cache
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path)" >> $GITHUB_OUTPUT
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v3
+        with:
+          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install dependencies
+        working-directory: src/backend
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma client
+        working-directory: src/backend
+        run: pnpm prisma:generate
+
+      - name: Run linting
+        working-directory: src/backend
+        run: pnpm lint
+
+      - name: Type checking
+        working-directory: src/backend
+        run: pnpm run build --noEmit
+
+      - name: Run unit tests
+        working-directory: src/backend
+        run: pnpm test
+
+      - name: Run integration tests
+        working-directory: src/backend
+        run: pnpm test:coverage
+
+      - name: Upload coverage reports
+        uses: codecov/codecov-action@v3
+        with:
+          directory: src/backend/coverage
+          flags: backend
+          name: backend-coverage
+          fail_ci_if_error: true
+          verbose: true
+
+      - name: Build application
+        working-directory: src/backend
+        run: pnpm build
+
+      - name: Run security audit
+        working-directory: src/backend
+        run: pnpm security:audit
+
+      - name: Build Docker image
+        working-directory: src/backend
+        run: pnpm docker:build
+
+      - name: Validate Docker image
+        working-directory: src/backend
+        run: |
+          docker run --rm ai-voice-agent-backend node -v
+          docker run --rm ai-voice-agent-backend node -e "console.log(process.versions)"
+
+      - name: Cache Docker layers
+        uses: actions/cache@v3
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-
