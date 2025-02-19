@@ -1,0 +1,44 @@
+---
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: standard
+  annotations:
+    storageclass.kubernetes.io/is-default-class: "true"
+  labels:
+    app.kubernetes.io/name: voice-agent
+    app.kubernetes.io/part-of: voice-agent
+    environment: production
+    managed-by: kubernetes
+provisioner: ebs.csi.aws.com # AWS EBS CSI Driver v1.12+
+parameters:
+  type: gp3 # General purpose SSD
+  encrypted: "true" # Enable encryption at rest
+  fsType: ext4
+  # gp3 baseline performance: 3000 IOPS, 125 MB/s throughput
+  throughput: "125"
+  iops: "3000"
+reclaimPolicy: Delete
+volumeBindingMode: WaitForFirstConsumer # Delay volume binding until pod is scheduled
+allowVolumeExpansion: true
+---
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: fast
+  labels:
+    app.kubernetes.io/name: voice-agent
+    app.kubernetes.io/part-of: voice-agent
+    environment: production
+    managed-by: kubernetes
+provisioner: ebs.csi.aws.com # AWS EBS CSI Driver v1.12+
+parameters:
+  type: io2 # Provisioned IOPS SSD
+  encrypted: "true" # Enable encryption at rest
+  fsType: ext4
+  iopsPerGB: "50" # High IOPS for database workloads
+  # io2 volumes support up to 64,000 IOPS
+  iops: "10000" # Base IOPS allocation
+reclaimPolicy: Retain # Preserve volumes on PVC deletion
+volumeBindingMode: WaitForFirstConsumer # Delay volume binding until pod is scheduled
+allowVolumeExpansion: true
