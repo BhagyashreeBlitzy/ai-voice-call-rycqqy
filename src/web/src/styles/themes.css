@@ -1,0 +1,160 @@
+/* ==========================================================================
+   Theme System - Light/Dark Mode Support
+   Implements Material Design principles with WCAG 2.1 Level AA compliance
+   Version: 1.0.0
+   ========================================================================== */
+
+@import './variables.css';
+
+/* Light Theme
+   Default theme with Material Design light mode colors and elevations
+   ========================================================================== */
+.light-theme {
+  --background-default: #FFFFFF;
+  --background-paper: #F5F5F5;
+  --background-elevated: #FFFFFF;
+  --text-primary: rgba(0, 0, 0, 0.87);
+  --text-secondary: rgba(0, 0, 0, 0.6);
+  --text-disabled: rgba(0, 0, 0, 0.38);
+  --divider: rgba(0, 0, 0, 0.12);
+  --action-active: rgba(0, 0, 0, 0.54);
+  --action-hover: rgba(0, 0, 0, 0.04);
+  --action-selected: rgba(0, 0, 0, 0.08);
+  --action-disabled: rgba(0, 0, 0, 0.26);
+  --action-focus: rgba(0, 0, 0, 0.12);
+  --shadow-sm: 0 2px 4px rgba(0,0,0,0.1);
+  --shadow-md: 0 4px 8px rgba(0,0,0,0.1);
+  --shadow-lg: 0 8px 16px rgba(0,0,0,0.1);
+  --shadow-xl: 0 12px 24px rgba(0,0,0,0.1);
+  --elevation-1: 0 1px 3px rgba(0,0,0,0.12);
+  --elevation-2: 0 3px 6px rgba(0,0,0,0.15);
+  --elevation-3: 0 6px 12px rgba(0,0,0,0.18);
+  --focus-ring: 0 0 0 3px rgba(0,0,0,0.16);
+  --hover-overlay: rgba(0,0,0,0.04);
+}
+
+/* Dark Theme
+   Material Design dark mode with enhanced contrast and elevation system
+   ========================================================================== */
+.dark-theme {
+  --background-default: #121212;
+  --background-paper: #1E1E1E;
+  --background-elevated: #242424;
+  --text-primary: #FFFFFF;
+  --text-secondary: rgba(255, 255, 255, 0.7);
+  --text-disabled: rgba(255, 255, 255, 0.5);
+  --divider: rgba(255, 255, 255, 0.12);
+  --action-active: rgba(255, 255, 255, 0.7);
+  --action-hover: rgba(255, 255, 255, 0.08);
+  --action-selected: rgba(255, 255, 255, 0.16);
+  --action-disabled: rgba(255, 255, 255, 0.3);
+  --action-focus: rgba(255, 255, 255, 0.12);
+  --shadow-sm: 0 2px 4px rgba(0,0,0,0.3);
+  --shadow-md: 0 4px 8px rgba(0,0,0,0.4);
+  --shadow-lg: 0 8px 16px rgba(0,0,0,0.5);
+  --shadow-xl: 0 12px 24px rgba(0,0,0,0.6);
+  --elevation-1: 0 1px 3px rgba(0,0,0,0.3);
+  --elevation-2: 0 3px 6px rgba(0,0,0,0.35);
+  --elevation-3: 0 6px 12px rgba(0,0,0,0.4);
+  --focus-ring: 0 0 0 3px rgba(255,255,255,0.24);
+  --hover-overlay: rgba(255,255,255,0.08);
+}
+
+/* Theme Transitions
+   Smooth transitions between theme changes
+   ========================================================================== */
+:root {
+  transition-property: background-color, color, border-color, box-shadow, opacity;
+  transition-duration: 200ms;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-delay: 0ms;
+  will-change: background-color, color, border-color, box-shadow, opacity;
+}
+
+/* System Theme Preference Detection
+   Automatically applies theme based on system preferences
+   ========================================================================== */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme='dark']) {
+    color-scheme: light;
+    background-color: var(--background-default);
+    color: var(--text-primary);
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+    background-color: var(--background-default);
+    color: var(--text-primary);
+  }
+}
+
+/* Focus States
+   Enhanced focus indicators for accessibility
+   ========================================================================== */
+:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+/* High Contrast Mode Support
+   Ensures visibility in Windows High Contrast Mode
+   ========================================================================== */
+@media (forced-colors: active) {
+  :root {
+    --focus-ring: 0 0 0 3px ButtonText;
+    --divider: ButtonText;
+  }
+}
+
+/* Theme-Aware Component States
+   Common interactive states with theme support
+   ========================================================================== */
+.interactive-element {
+  transition: background-color var(--transition-duration-normal) var(--transition-timing-ease),
+              box-shadow var(--transition-duration-normal) var(--transition-timing-ease);
+}
+
+.interactive-element:hover {
+  background-color: var(--action-hover);
+}
+
+.interactive-element:active {
+  background-color: var(--action-selected);
+}
+
+.interactive-element:disabled {
+  background-color: var(--action-disabled);
+  cursor: not-allowed;
+}
+
+/* Elevation System
+   Material Design elevation levels with theme-aware shadows
+   ========================================================================== */
+.elevation-1 {
+  box-shadow: var(--elevation-1);
+}
+
+.elevation-2 {
+  box-shadow: var(--elevation-2);
+}
+
+.elevation-3 {
+  box-shadow: var(--elevation-3);
+}
+
+/* Theme Toggle Animation
+   Smooth transition for theme toggle button
+   ========================================================================== */
+.theme-toggle {
+  transition: transform var(--transition-duration-normal) var(--transition-timing-bounce);
+}
+
+.theme-toggle:hover {
+  transform: scale(1.05);
+}
+
+.theme-toggle:active {
+  transform: scale(0.95);
+}
