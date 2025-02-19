@@ -1,0 +1,85 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+  namespace: ai-voice-agent
+  labels:
+    app: ai-voice-agent
+    component: config
+data:
+  # Environment and Logging
+  NODE_ENV: "production"
+  LOG_LEVEL: "info"
+
+  # Server Configuration
+  BACKEND_PORT: "3000"
+  FRONTEND_PORT: "80"
+  CORS_ORIGIN: "https://*.example.com"
+
+  # API Rate Limiting
+  API_RATE_LIMIT: "100"
+  API_RATE_WINDOW: "60000"  # 60 seconds in milliseconds
+
+  # Authentication
+  JWT_EXPIRY: "900"  # 15 minutes in seconds
+
+  # WebSocket Configuration
+  WEBSOCKET_PATH: "/ws"
+  WEBSOCKET_PING_INTERVAL: "30000"  # 30 seconds in milliseconds
+  WEBSOCKET_MAX_PAYLOAD: "65536"    # 64KB in bytes
+  WEBSOCKET_TIMEOUT: "120000"       # 2 minutes in milliseconds
+
+  # Audio Processing Configuration
+  AUDIO_SAMPLE_RATE: "16000"        # 16kHz
+  AUDIO_FRAME_SIZE: "20"            # 20ms
+  AUDIO_ENCODING: "LINEAR16"        # 16-bit PCM
+  AUDIO_CHANNELS: "1"               # Mono
+  VAD_THRESHOLD: "-26"              # Voice Activity Detection threshold in dB
+  NOISE_FLOOR: "-45"               # Minimum signal level in dB
+  MAX_LATENCY: "500"               # Maximum acceptable latency in ms
+  VOICE_ACTIVITY_WINDOW: "300"     # Voice activity detection window in ms
+  SILENCE_DURATION: "1000"         # Silence duration before stopping in ms
+
+  # Database Configuration
+  DB_HOST: "postgres-master.ai-voice-agent.svc.cluster.local"
+  DB_PORT: "5432"
+  DB_NAME: "aivoiceagent"
+  DB_POOL_MIN: "5"
+  DB_POOL_MAX: "20"
+  DB_IDLE_TIMEOUT: "10000"         # 10 seconds in milliseconds
+
+  # Redis Configuration
+  REDIS_HOST: "redis-master.ai-voice-agent.svc.cluster.local"
+  REDIS_PORT: "6379"
+  REDIS_DB: "0"
+  REDIS_KEY_PREFIX: "voice-agent:"
+  REDIS_TIMEOUT: "5000"            # 5 seconds in milliseconds
+
+  # Storage Configuration
+  STORAGE_BUCKET: "audio-recordings"
+  STORAGE_REGION: "us-west-2"
+  STORAGE_PATH_PREFIX: "recordings/"
+  STORAGE_EXPIRY: "86400"          # 24 hours in seconds
+
+  # Speech API Configuration
+  SPEECH_API_TIMEOUT: "10000"      # 10 seconds in milliseconds
+  SPEECH_MAX_ALTERNATIVES: "1"
+  SPEECH_LANGUAGE_CODE: "en-US"
+  SPEECH_MODEL: "command_and_search"
+
+  # Monitoring and Health
+  HEALTH_CHECK_INTERVAL: "30000"   # 30 seconds in milliseconds
+  METRICS_ENABLED: "true"
+  TRACE_SAMPLE_RATE: "0.1"         # 10% trace sampling
+
+  # Audio Processing Features
+  ENABLE_VOICE_ACTIVITY_DETECTION: "true"
+  ENABLE_NOISE_CANCELLATION: "true"
+  ENABLE_AUTO_GAIN_CONTROL: "true"
+  ENABLE_ECHO_CANCELLATION: "true"
+
+  # Resilience Configuration
+  MAX_RETRY_ATTEMPTS: "3"
+  RETRY_DELAY: "1000"              # 1 second in milliseconds
+  ERROR_THRESHOLD: "50"            # Error threshold count
+  CIRCUIT_BREAKER_TIMEOUT: "60000" # 1 minute in milliseconds
