@@ -1,0 +1,119 @@
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: voice-agent-routes
+  namespace: istio-system
+  labels:
+    app: voice-agent
+    component: routing
+  annotations:
+    monitoring.istio.io/scrape: 'true'
+    monitoring.istio.io/port: '15020'
+    sidecar.istio.io/proxyCPU: '100m'
+    sidecar.istio.io/proxyMemory: '128Mi'
+spec:
+  hosts:
+    - "*"
+  gateways:
+    - voice-agent-gateway
+  http:
+    # WebSocket route for real-time voice communication
+    - match:
+        - uri:
+            prefix: "/api/v1"
+          headers:
+            upgrade:
+              exact: "websocket"
+      route:
+        - destination:
+            host: voice-agent-backend
+            port:
+              number: 443
+            subset: "v1"
+          weight: 90
+        - destination:
+            host: voice-agent-backend
+            port:
+              number: 443
+            subset: "v2"
+          weight: 10
+      timeout: "30s"
+      retries:
+        attempts: 3
+        perTryTimeout: "2s"
+        retryOn: "connect-failure,refused-stream,unavailable,5xx"
+      fault:
+        delay:
+          percentage:
+            value: 0.1
+          fixedDelay: "5s"
+      corsPolicy:
+        allowOrigins:
+          - exact: "*"
+        allowMethods:
+          - GET
+          - POST
+          - PUT
+          - DELETE
+          - OPTIONS
+        allowHeaders:
+          - "*"
+        maxAge: "24h"
+
+    # HTTP API routes
+    - match:
+        - uri:
+            prefix: "/api/v1"
+      route:
+        - destination:
+            host: voice-agent-backend
+            port:
+              number: 80
+            subset: "v1"
+          weight: 90
+        - destination:
+            host: voice-agent-backend
+            port:
+              number: 80
+            subset: "v2"
+          weight: 10
+      timeout: "5s"
+      retries:
+        attempts: 3
+        perTryTimeout: "1s"
+        retryOn: "connect-failure,refused-stream,5xx"
+      corsPolicy:
+        allowOrigins:
+          - exact: "*"
+        allowMethods:
+          - GET
+          - POST
+          - PUT
+          - DELETE
+          - OPTIONS
+        allowHeaders:
+          - "*"
+        maxAge: "24h"
+
+    # Static content route
+    - match:
+        - uri:
+            prefix: "/"
+      route:
+        - destination:
+            host: voice-agent-web
+            port:
+              number: 80
+      timeout: "5s"
+      retries:
+        attempts: 2
+        perTryTimeout: "1s"
+        retryOn: "connect-failure,refused-stream"
+      headers:
+        response:
+          set:
+            cache-control: "public, max-age=3600"
+            strict-transport-security: "max-age=31536000; includeSubDomains"
+            x-content-type-options: "nosniff"
+            x-frame-options: "DENY"
+            x-xss-protection: "1; mode=block"
