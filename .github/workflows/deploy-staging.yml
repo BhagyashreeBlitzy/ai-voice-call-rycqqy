@@ -1,0 +1,290 @@
+name: Deploy to Staging
+
+on:
+  push:
+    branches:
+      - develop
+    paths:
+      - 'src/**'
+      - 'infrastructure/**'
+  workflow_run:
+    workflows:
+      - 'Backend CI'
+      - 'Frontend CI'
+    types:
+      - completed
+    branches:
+      - develop
+
+concurrency:
+  group: staging
+  cancel-in-progress: true
+
+env:
+  AWS_REGION: ${{ secrets.AWS_REGION }}
+  EKS_CLUSTER_NAME: ${{ secrets.EKS_CLUSTER_NAME }}
+  ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}
+  STAGING_NAMESPACE: voice-agent-staging
+  DEPLOYMENT_STRATEGY: blue-green
+  HEALTH_CHECK_THRESHOLD: "5m"
+  ROLLBACK_THRESHOLD: "2m"
+
+jobs:
+  prepare:
+    name: Prepare Deployment
+    runs-on: ubuntu-latest
+    environment:
+      name: staging
+      url: https://staging.voice-agent.example.com
+    timeout-minutes: 10
+    outputs:
+      deployment_id: ${{ steps.create_deployment.outputs.deployment_id }}
+    
+    steps:
+      - name: Create GitHub Deployment
+        id: create_deployment
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const deployment = await github.rest.repos.createDeployment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: context.sha,
+              environment: 'staging',
+              auto_merge: false,
+              required_contexts: []
+            });
+            return deployment.data.id;
+
+  deploy-backend:
+    name: Deploy Backend Services
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          lfs: true
+          
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v1
+        
+      - name: Set up Kubernetes Context
+        uses: azure/k8s-set-context@v2
+        with:
+          method: kubeconfig
+          kubeconfig: ${{ secrets.KUBECONFIG }}
+          
+      - name: Deploy Backend (Green)
+        id: deploy_backend
+        run: |
+          # Create new deployment with unique name
+          export DEPLOYMENT_NAME="voice-agent-backend-${GITHUB_SHA::8}"
+          
+          # Apply backend deployment with new image
+          envsubst < infrastructure/kubernetes/backend/deployment.yaml | kubectl apply -f -
+          
+          # Wait for deployment to be ready
+          kubectl rollout status deployment/${DEPLOYMENT_NAME} -n ${STAGING_NAMESPACE} --timeout=10m
+          
+          # Run health checks
+          for i in {1..5}; do
+            if kubectl exec deploy/${DEPLOYMENT_NAME} -n ${STAGING_NAMESPACE} -- curl -s http://localhost:3000/health | grep -q "healthy"; then
+              echo "Health check $i passed"
+            else
+              echo "Health check failed"
+              exit 1
+            fi
+            sleep 30
+          done
+          
+          echo "deployment_name=${DEPLOYMENT_NAME}" >> $GITHUB_OUTPUT
+          
+      - name: Shift Traffic
+        if: success()
+        run: |
+          # Gradually shift traffic using service mesh
+          for percent in 20 40 60 80 100; do
+            kubectl patch virtualservice voice-agent-backend -n ${STAGING_NAMESPACE} \
+              --type=json \
+              -p="[{\"op\": \"replace\", \"path\": \"/spec/http/0/route/0/weight\", \"value\": $percent}]"
+            sleep 300 # Wait 5 minutes between shifts
+            
+            # Monitor error rates
+            if ! kubectl exec deploy/monitoring -n monitoring -- curl -s http://prometheus:9090/api/v1/query\?query=error_rate | grep -q '"value":[0-9]*\.[0-9]*'; then
+              echo "Error rate exceeded threshold during traffic shift"
+              exit 1
+            fi
+          done
+          
+      - name: Cleanup Old Deployment
+        if: success()
+        run: |
+          # Get old deployment name
+          OLD_DEPLOYMENT=$(kubectl get deploy -n ${STAGING_NAMESPACE} -l app=voice-agent,tier=backend \
+            --sort-by=.metadata.creationTimestamp -o jsonpath='{.items[0].metadata.name}')
+          
+          # Delete old deployment
+          kubectl delete deployment ${OLD_DEPLOYMENT} -n ${STAGING_NAMESPACE}
+
+  deploy-frontend:
+    name: Deploy Frontend Application
+    needs: [prepare, deploy-backend]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          lfs: true
+          
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v1
+        
+      - name: Set up Kubernetes Context
+        uses: azure/k8s-set-context@v2
+        with:
+          method: kubeconfig
+          kubeconfig: ${{ secrets.KUBECONFIG }}
+          
+      - name: Deploy Frontend (Green)
+        id: deploy_frontend
+        run: |
+          # Create new deployment with unique name
+          export DEPLOYMENT_NAME="voice-agent-web-${GITHUB_SHA::8}"
+          
+          # Apply frontend deployment with new image
+          envsubst < infrastructure/kubernetes/web/deployment.yaml | kubectl apply -f -
+          
+          # Wait for deployment to be ready
+          kubectl rollout status deployment/${DEPLOYMENT_NAME} -n ${STAGING_NAMESPACE} --timeout=10m
+          
+          # Run health checks
+          for i in {1..5}; do
+            if kubectl exec deploy/${DEPLOYMENT_NAME} -n ${STAGING_NAMESPACE} -- curl -s http://localhost:80/health | grep -q "healthy"; then
+              echo "Health check $i passed"
+            else
+              echo "Health check failed"
+              exit 1
+            fi
+            sleep 30
+          done
+          
+          echo "deployment_name=${DEPLOYMENT_NAME}" >> $GITHUB_OUTPUT
+          
+      - name: Configure CDN
+        run: |
+          # Update CloudFront distribution with new origin
+          aws cloudfront update-distribution \
+            --id ${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }} \
+            --distribution-config file://infrastructure/cloudfront/staging-config.json
+            
+      - name: Shift Traffic
+        if: success()
+        run: |
+          # Gradually shift traffic using service mesh
+          for percent in 20 40 60 80 100; do
+            kubectl patch virtualservice voice-agent-web -n ${STAGING_NAMESPACE} \
+              --type=json \
+              -p="[{\"op\": \"replace\", \"path\": \"/spec/http/0/route/0/weight\", \"value\": $percent}]"
+            sleep 300 # Wait 5 minutes between shifts
+            
+            # Monitor client-side errors
+            if ! kubectl exec deploy/monitoring -n monitoring -- curl -s http://prometheus:9090/api/v1/query\?query=frontend_error_rate | grep -q '"value":[0-9]*\.[0-9]*'; then
+              echo "Error rate exceeded threshold during traffic shift"
+              exit 1
+            fi
+          done
+          
+      - name: Cleanup Old Deployment
+        if: success()
+        run: |
+          # Get old deployment name
+          OLD_DEPLOYMENT=$(kubectl get deploy -n ${STAGING_NAMESPACE} -l app=voice-agent,tier=frontend \
+            --sort-by=.metadata.creationTimestamp -o jsonpath='{.items[0].metadata.name}')
+          
+          # Delete old deployment
+          kubectl delete deployment ${OLD_DEPLOYMENT} -n ${STAGING_NAMESPACE}
+
+  integration-tests:
+    name: Run Integration Tests
+    needs: [deploy-backend, deploy-frontend]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    steps:
+      - uses: actions/checkout@v3
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+          cache: 'npm'
+          
+      - name: Install Dependencies
+        run: npm ci
+        
+      - name: Run API Tests
+        run: |
+          npm run test:integration -- \
+            --api-url=https://staging-api.voice-agent.example.com \
+            --test-timeout=30000 \
+            --retries=3
+            
+      - name: Run E2E Tests
+        run: |
+          npm run test:e2e -- \
+            --base-url=https://staging.voice-agent.example.com \
+            --browser=chrome \
+            --headless
+            
+      - name: Run Load Tests
+        run: |
+          npm run test:load -- \
+            --target-url=https://staging-api.voice-agent.example.com \
+            --vus=10 \
+            --duration=5m
+            
+      - name: Archive Test Results
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: test-results
+          path: |
+            test-results/
+            coverage/
+            k6-results/
+
+  update-deployment:
+    name: Update Deployment Status
+    needs: [prepare, integration-tests]
+    runs-on: ubuntu-latest
+    if: always()
+    
+    steps:
+      - name: Update GitHub Deployment Status
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const status = '${{ needs.integration-tests.result }}' === 'success' ? 'success' : 'failure';
+            await github.rest.repos.createDeploymentStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              deployment_id: ${{ needs.prepare.outputs.deployment_id }},
+              state: status,
+              environment_url: 'https://staging.voice-agent.example.com',
+              description: status === 'success' ? 'Deployment completed successfully' : 'Deployment failed'
+            });
