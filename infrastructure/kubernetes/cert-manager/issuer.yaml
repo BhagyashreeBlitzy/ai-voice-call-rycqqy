@@ -1,0 +1,46 @@
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-prod
+  labels:
+    app: voice-agent
+    component: certificate-issuer
+    environment: production
+    app.kubernetes.io/name: voice-agent
+    app.kubernetes.io/component: cert-manager
+    app.kubernetes.io/part-of: voice-agent
+spec:
+  acme:
+    # Production Let's Encrypt ACME server
+    server: https://acme-v02.api.letsencrypt.org/directory
+    email: admin@voice-agent.example.com
+    privateKeySecretRef:
+      name: letsencrypt-prod-account-key
+    solvers:
+      - http01:
+          ingress:
+            class: istio
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-staging
+  labels:
+    app: voice-agent
+    component: certificate-issuer
+    environment: staging
+    app.kubernetes.io/name: voice-agent
+    app.kubernetes.io/component: cert-manager
+    app.kubernetes.io/part-of: voice-agent
+spec:
+  acme:
+    # Staging Let's Encrypt ACME server for testing
+    server: https://acme-staging-v02.api.letsencrypt.org/directory
+    email: admin@voice-agent.example.com
+    privateKeySecretRef:
+      name: letsencrypt-staging-account-key
+    solvers:
+      - http01:
+          ingress:
+            class: istio
