@@ -1,0 +1,57 @@
+# This file defines code ownership and required reviewers for different parts of the codebase
+
+# Default owners for unspecified files
+* @project-leads
+
+# Authentication and Authorization Services
+# Requires security team review for all auth-related changes
+src/backend/src/services/auth/** @security-team @backend-team
+
+# Voice Processing and Audio Services
+# Requires audio team expertise for voice/audio processing changes
+src/backend/src/services/audio/** @audio-team @backend-team
+
+# Security-Sensitive Configuration
+# Requires security review for all config changes
+src/backend/src/config/** @security-team @backend-team
+
+# Frontend UI Components
+# Requires accessibility review for UI changes
+src/web/src/components/** @frontend-team @accessibility-team
+
+# Frontend Services
+# Requires security review for frontend service changes
+src/web/src/services/** @frontend-team @security-team
+
+# Infrastructure and Deployment
+# Requires DevOps and security review
+infrastructure/** @devops-team @security-team
+
+# CI/CD Pipeline Configuration
+# Requires DevOps team review
+.github/workflows/** @devops-team
+
+# Test Suites
+# Requires QA team review
+src/*/tests/** @qa-team
+
+# Documentation
+docs/** @project-leads @technical-writers
+
+# Security Policies and Configurations
+security/** @security-team
+
+# API Specifications
+api/** @backend-team @api-team
+
+# Database Migrations and Schemas
+prisma/** @backend-team @database-team
+
+# Kubernetes Configurations
+kubernetes/** @devops-team @security-team
+
+# Monitoring and Observability
+monitoring/** @devops-team @sre-team
+
+# Environment Configurations
+.env.* @security-team @devops-team
