@@ -1,0 +1,59 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: voice-agent-tls
+  namespace: voice-agent-backend
+  labels:
+    app: voice-agent
+    component: tls-certificate
+    security-tier: critical
+    managed-by: cert-manager
+  annotations:
+    # cert-manager.io v1.12+
+    cert-manager.io/issue-temporary-certificate: "true"
+    cert-manager.io/private-key-rotation-policy: "Always"
+spec:
+  # Secret name where the certificate will be stored
+  secretName: voice-agent-tls-secret
+  
+  # Certificate validity duration (90 days)
+  duration: "2160h"
+  
+  # Trigger renewal 15 days before expiry
+  renewBefore: "360h"
+  
+  # Certificate subject details
+  subject:
+    organizations:
+      - voice-agent
+    organizationalUnits:
+      - security
+    countries:
+      - US
+    localities:
+      - Production
+  
+  # Private key configuration
+  privateKey:
+    algorithm: RSA
+    encoding: PKCS1
+    size: 2048
+    rotationPolicy: Always
+  
+  # Certificate usage purposes
+  usages:
+    - server auth
+    - client auth
+  
+  # DNS names covered by the certificate
+  dnsNames:
+    - voice-agent.example.com
+    - "*.voice-agent.example.com"
+    - api.voice-agent.example.com
+    - ws.voice-agent.example.com
+  
+  # Certificate issuer reference
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+    group: cert-manager.io
