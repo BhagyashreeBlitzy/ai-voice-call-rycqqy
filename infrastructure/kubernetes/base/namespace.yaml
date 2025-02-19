@@ -1,0 +1,28 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: voice-agent-backend
+  labels:
+    name: voice-agent-backend
+    part-of: voice-agent
+    tier: backend
+    environment: production
+    managed-by: kubernetes
+    app.kubernetes.io/name: voice-agent
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/part-of: voice-agent
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: voice-agent-frontend
+  labels:
+    name: voice-agent-frontend
+    part-of: voice-agent
+    tier: frontend
+    environment: production
+    managed-by: kubernetes
+    app.kubernetes.io/name: voice-agent
+    app.kubernetes.io/component: frontend
+    app.kubernetes.io/part-of: voice-agent
