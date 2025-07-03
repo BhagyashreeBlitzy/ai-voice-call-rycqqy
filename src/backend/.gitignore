@@ -1,0 +1,139 @@
+# =================================================================
+# Backend Node.js/Express.js Project .gitignore
+# =================================================================
+# Prevents accidental commits of dependencies, build artifacts,
+# sensitive configuration, and local development files
+# Addresses security requirements per Technical Specifications 2.4.4
+# =================================================================
+
+# =================================================================
+# Dependencies and Package Managers
+# =================================================================
+# Exclude node_modules to prevent massive dependency commits
+# Supports npm, yarn, and pnpm package managers
+# Addresses Technical Specifications 3.2.1 Core Web Framework requirements
+node_modules/
+
+# Package manager lock files (keep package-lock.json for security audit compliance)
+# yarn.lock and pnpm-lock.yaml should be committed if using those managers
+# but excluded here as this project uses npm per Technical Specifications 3.3.1
+
+# =================================================================
+# Environment Configuration and Secrets
+# =================================================================
+# Environment variables containing sensitive data
+# Prevents credential leaks per Security Implications 2.4.4
+# Supports environment configuration management per 3.6.1 Development Tools
+.env
+.env.*
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# =================================================================
+# Build Artifacts and Distribution
+# =================================================================
+# Generated build outputs and distribution files
+# Maintains clean repository hygiene per Node.js best practices
+dist/
+build/
+coverage/
+
+# =================================================================
+# Logs and Debug Files
+# =================================================================
+# Application and package manager logs
+# Prevents bloating repository with runtime artifacts
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# =================================================================
+# Testing and Coverage
+# =================================================================
+# Testing artifacts and coverage reports
+# NYC (Istanbul) output directory for code coverage
+.nyc_output/
+
+# =================================================================
+# Development Tools and IDE
+# =================================================================
+# IDE and editor specific files
+# Supports clean development environment across teams
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ESLint cache for faster subsequent runs
+.eslintcache
+
+# =================================================================
+# System and OS Files
+# =================================================================
+# Operating system generated files
+# Prevents OS-specific files from being committed
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# =================================================================
+# Temporary and Cache Files
+# =================================================================
+# Temporary directories and files
+# Local development artifacts
+tmp/
+temp/
+*.tmp
+*.temp
+*.local
+
+# =================================================================
+# Security and Audit
+# =================================================================
+# Security audit and vulnerability scan results
+# Prevents sensitive security information exposure
+.audit-ci/
+
+# =================================================================
+# Node.js Runtime
+# =================================================================
+# Node.js REPL history
+.node_repl_history
+
+# Optional npm cache directory
+.npm
+
+# Optional REPL history
+.node_repl_history
+
+# Output of 'npm pack'
+*.tgz
+
+# =================================================================
+# Express.js Specific
+# =================================================================
+# Express.js session store (if using file-based sessions)
+sessions/
+
+# =================================================================
+# Production Considerations
+# =================================================================
+# PM2 process manager logs and configurations
+.pm2/
+
+# Serverless framework
+.serverless/
+
+# =================================================================
+# End of .gitignore
+# =================================================================
