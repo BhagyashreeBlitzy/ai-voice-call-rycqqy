@@ -1,0 +1,165 @@
+# Kubernetes Service manifest for Node.js Tutorial Backend
+# Exposes the backend Deployment as a stable, load-balanced network endpoint within the cluster
+# Enables internal (and via Ingress, external) access to the /hello endpoint and other HTTP routes
+# Supports production-ready service discovery and traffic management
+
+apiVersion: v1
+kind: Service
+metadata:
+  # Service name that provides stable DNS endpoint: backend-service.backend.svc.cluster.local
+  name: backend-service
+  
+  # Deploy in the backend namespace for logical isolation and resource management
+  namespace: backend
+  
+  # Labels for service discovery, monitoring, and resource organization
+  labels:
+    app: nodejs-tutorial-backend
+    component: backend-service
+    version: v1.0.0
+    tier: backend
+    managed-by: kubernetes
+    environment: production
+  
+  # Annotations providing service documentation and operational metadata
+  annotations:
+    # Service description and purpose
+    description: "Exposes the Node.js tutorial backend pods as a stable, load-balanced network endpoint within the cluster"
+    
+    # Documentation and contact information
+    documentation: "https://github.com/nodejs-tutorial/backend/docs/service"
+    contact: "backend-team@nodejs-tutorial.com"
+    
+    # Deployment and lifecycle information
+    deployment-strategy: "rolling-update"
+    created-by: "infrastructure-team"
+    last-updated: "2024-01-15T10:00:00Z"
+    
+    # Service configuration annotations
+    service.beta.kubernetes.io/load-balancer-source-ranges: "internal"
+    
+    # Monitoring and observability annotations for Prometheus scraping
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "3000"
+    prometheus.io/path: "/metrics"
+    
+    # Educational context annotation
+    educational-purpose: "Demonstrates Kubernetes Service patterns for stable backend endpoint exposure"
+    
+    # Traffic and load balancing annotations
+    service.kubernetes.io/load-balancer-class: "internal"
+    
+    # Resource management annotations
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"v1","kind":"Service","metadata":{"name":"backend-service","namespace":"backend"}}
+
+# Service specification defining network behavior and load balancing
+spec:
+  # Service type: ClusterIP for internal cluster access only
+  # External access is managed through Ingress resources for better security and control
+  type: ClusterIP
+  
+  # Selector to match backend pods using labels from the Deployment
+  # Must match exactly with the pod labels in backend-deployment.yaml
+  selector:
+    app: nodejs-tutorial-backend
+    tier: backend
+  
+  # Port configuration for HTTP traffic routing
+  ports:
+    # Primary HTTP port for API traffic
+    - name: http
+      # Protocol for network communication
+      protocol: TCP
+      # Port exposed by the Service for client connections
+      port: 3000
+      # Target port on the backend container (matches PORT in backend-config.yaml)
+      targetPort: 3000
+      # Optional: AppProtocol for enhanced service mesh integration
+      appProtocol: http
+  
+  # Session affinity configuration for stateless applications
+  # None: Load balance requests across all healthy pods without sticky sessions
+  # Appropriate for stateless REST API endpoints like /hello
+  sessionAffinity: None
+  
+  # IP family configuration for dual-stack support (IPv4/IPv6)
+  # SingleStack IPv4 for standard cluster networking
+  ipFamilyPolicy: SingleStack
+  ipFamilies:
+    - IPv4
+  
+  # Internal traffic policy to optimize pod-to-pod communication
+  # Local: Route traffic to endpoints on the same node when possible
+  # Reduces network latency and improves performance
+  internalTrafficPolicy: Local
+  
+  # Service topology for traffic distribution optimization
+  # Prefer local endpoints but allow cluster-wide load balancing when needed
+  # Ensures high availability while optimizing for performance
+  
+---
+# Optional: Headless Service for StatefulSet patterns or direct pod access
+# Not required for current stateless application but supports future enhancement
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-service-headless
+  namespace: backend
+  labels:
+    app: nodejs-tutorial-backend
+    component: backend-service-headless
+    version: v1.0.0
+    tier: backend
+  annotations:
+    description: "Headless service for direct pod access and StatefulSet support (future use)"
+    service.alpha.kubernetes.io/tolerate-unready-endpoints: "true"
+    
+spec:
+  # Headless service with no cluster IP for direct pod DNS resolution
+  clusterIP: None
+  
+  # Same selector as the main service
+  selector:
+    app: nodejs-tutorial-backend
+    tier: backend
+  
+  # Same port configuration
+  ports:
+    - name: http
+      protocol: TCP
+      port: 3000
+      targetPort: 3000
+      appProtocol: http
+  
+  # Publish not ready addresses for pod discovery during rolling updates
+  publishNotReadyAddresses: false
+  
+  # Session affinity not applicable for headless services
+  sessionAffinity: None
+
+---
+# Service Monitor for Prometheus metrics collection (if monitoring is enabled)
+# Supports observability and performance monitoring of the backend service
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-service-monitor-config
+  namespace: backend
+  labels:
+    app: nodejs-tutorial-backend
+    component: monitoring
+    version: v1.0.0
+data:
+  # Prometheus scrape configuration for the backend service
+  scrape-config.yaml: |
+    scrape_configs:
+      - job_name: 'nodejs-tutorial-backend'
+        static_configs:
+          - targets: ['backend-service:3000']
+        metrics_path: '/metrics'
+        scrape_interval: 30s
+        scrape_timeout: 10s
+        honor_labels: true
+        params:
+          format: ['prometheus']
