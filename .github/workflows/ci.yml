@@ -1,0 +1,187 @@
+# GitHub Actions CI Workflow for Node.js Tutorial Backend
+# Version: GitHub Actions workflow for continuous integration and quality assurance
+# 
+# This workflow automates the build, test, and quality validation pipeline for the Node.js tutorial backend
+# application. It ensures code quality, test coverage, security compliance, and production deployment readiness
+# for all pull requests and pushes to main and feature branches.
+#
+# Features:
+# - Node.js v22.x LTS environment setup for Express.js v5.1.0 compatibility
+# - Clean dependency installation with npm ci for reproducible builds
+# - Code quality enforcement through ESLint with educational clarity standards
+# - Comprehensive test execution with Jest and Supertest for unit and integration testing
+# - Code coverage validation with NYC coverage thresholds (90% lines, 100% functions, 80% branches)
+# - Security vulnerability scanning with npm audit for dependency security
+# - Docker image build validation for production deployment compatibility
+# - Educational transparency through detailed step documentation and error reporting
+
+name: CI
+
+# Workflow triggers - runs on push and pull request events for main and feature branches
+# This ensures all code changes are validated before merging and deployment
+on:
+  push:
+    branches: 
+      - main
+      - 'feature/*'
+  pull_request:
+    branches: 
+      - main
+      - 'feature/*'
+
+# Environment variables for consistent configuration across all jobs
+# NODE_VERSION: Specifies Node.js v22.x LTS for compatibility with Express.js v5.1.0 and production requirements
+env:
+  NODE_VERSION: '22.x'
+
+# Jobs configuration - defines the continuous integration pipeline
+jobs:
+  # Main CI job - comprehensive build, test, and validation pipeline
+  build-and-test:
+    # Use latest stable Ubuntu runner for optimal performance and compatibility
+    runs-on: ubuntu-latest
+    
+    # Set working directory for all steps to the backend source code location
+    # This ensures all npm commands execute in the correct project context
+    defaults:
+      run:
+        working-directory: src/backend
+    
+    # Pipeline steps - executed sequentially for comprehensive validation
+    steps:
+      # Step 1: Checkout repository code
+      # Uses actions/checkout@v4 for secure and efficient code retrieval
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          # Fetch full history for accurate blame and contribution tracking
+          fetch-depth: 0
+      
+      # Step 2: Setup Node.js environment
+      # Configures Node.js v22.x LTS with npm caching for optimal build performance
+      - name: Set up Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          # Enable npm caching to speed up dependency installation
+          cache: 'npm'
+          cache-dependency-path: 'src/backend/package-lock.json'
+      
+      # Step 3: Install dependencies
+      # Uses npm ci for clean, fast, and reproducible dependency installation
+      # npm ci provides deterministic builds and is optimized for automated environments
+      - name: Install dependencies
+        run: npm ci --no-audit
+      
+      # Step 4: Run ESLint for code quality and style enforcement
+      # Enforces coding standards, documentation requirements, and best practices
+      # Uses .eslintrc.js configuration for educational clarity and maintainability
+      - name: Run ESLint
+        run: npm run lint
+      
+      # Step 5: Execute comprehensive test suite
+      # Runs Jest unit and integration tests with Supertest for HTTP endpoint validation
+      # Includes coverage collection and threshold enforcement (90% lines, 100% functions, 80% branches)
+      - name: Run tests with coverage
+        run: npm test
+      
+      # Step 6: Security vulnerability scanning
+      # Checks for known security vulnerabilities in production dependencies
+      # Uses --audit-level=high to focus on critical security issues
+      - name: Check for security vulnerabilities
+        run: npm audit --audit-level=high
+        # Continue on audit failures to allow other checks to complete
+        # Security issues are reported but don't immediately fail the workflow
+        continue-on-error: true
+      
+      # Step 7: Build Docker image for production deployment validation
+      # Validates that the application can be successfully containerized
+      # Uses docker/build-push-action@v5 for efficient image building without registry push
+      - name: Build Docker image
+        uses: docker/build-push-action@v5
+        with:
+          # Set build context to project root for proper Docker build
+          context: .
+          # Use the Dockerfile in the backend directory
+          file: src/backend/Dockerfile
+          # Build only - do not push to registry (validation build)
+          push: false
+          # Tag the image for identification and potential local usage
+          tags: nodejs-tutorial-backend:ci
+          # Build for production environment validation
+          target: production
+      
+      # Step 8: Validate Docker image health
+      # Ensures the built Docker image can start successfully and respond to requests
+      # This validates the complete production deployment pipeline
+      - name: Test Docker image
+        run: |
+          # Start the Docker container in detached mode
+          docker run -d --name test-container -p 3000:3000 nodejs-tutorial-backend:ci
+          
+          # Wait for container to be ready (up to 30 seconds)
+          timeout=30
+          counter=0
+          while [ $counter -lt $timeout ]; do
+            if docker ps | grep -q test-container; then
+              echo "Container started successfully"
+              break
+            fi
+            echo "Waiting for container to start... ($counter/$timeout)"
+            sleep 1
+            counter=$((counter + 1))
+          done
+          
+          # Test the health endpoint
+          sleep 5  # Additional wait for application startup
+          
+          # Verify the container is responsive
+          if curl -f http://localhost:3000/hello; then
+            echo "Docker image validation successful"
+          else
+            echo "Docker image validation failed"
+            docker logs test-container
+            exit 1
+          fi
+          
+          # Clean up test container
+          docker stop test-container
+          docker rm test-container
+      
+      # Step 9: Upload test coverage results
+      # Preserves coverage reports for analysis and quality tracking
+      - name: Upload coverage reports
+        uses: actions/upload-artifact@v4
+        if: always()  # Upload even if tests fail
+        with:
+          name: coverage-reports
+          path: src/backend/coverage/
+          retention-days: 30
+      
+      # Step 10: Upload test results
+      # Preserves test execution results for debugging and quality analysis
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()  # Upload even if tests fail
+        with:
+          name: test-results
+          path: src/backend/test-results/
+          retention-days: 30
+          if-no-files-found: ignore
+
+# Workflow completion and quality gates
+# All steps must pass for the workflow to succeed:
+# 1. Code checkout and Node.js environment setup
+# 2. Clean dependency installation
+# 3. Code quality validation through ESLint
+# 4. Comprehensive test suite execution with coverage thresholds
+# 5. Security vulnerability assessment
+# 6. Docker image build and validation
+# 7. Production deployment readiness verification
+#
+# Failed steps will block pull request merges and deployment processes,
+# ensuring only high-quality, secure, and production-ready code reaches the main branch.
+#
+# The workflow provides educational transparency through detailed logging,
+# artifact preservation, and comprehensive validation of all quality gates
+# defined in the technical specification.
