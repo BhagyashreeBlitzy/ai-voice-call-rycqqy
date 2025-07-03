@@ -1,18 +1,30 @@
 {
   "watch": [
-    "src"
+    "app.js",
+    "index.js",
+    "config/",
+    "controllers/",
+    "routes/",
+    "middleware/",
+    "utils/"
   ],
-  "ext": ".ts,.js,.json",
+  "ext": "js,json",
   "ignore": [
-    "src/**/*.spec.ts",
-    "src/**/*.test.ts"
+    "node_modules/",
+    "logs/",
+    "coverage/",
+    "__tests__/",
+    "Dockerfile",
+    "docker-compose.yml",
+    "*.test.js"
   ],
-  "exec": "ts-node --files src/server.ts",
+  "exec": "node --experimental-specifier-resolution=node --trace-warnings app.js",
   "env": {
     "NODE_ENV": "development",
-    "TS_NODE_PROJECT": "./tsconfig.json"
+    "PORT": "3000"
   },
-  "delay": "1000",
+  "delay": "200",
+  "legacyWatch": false,
   "verbose": true,
-  "restartable": "rs"
+  "signal": "SIGTERM"
 }
