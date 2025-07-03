@@ -1,0 +1,36 @@
+# Kubernetes namespace manifest for the Node.js tutorial backend application
+# This namespace provides logical isolation and resource scoping for all backend-related 
+# Kubernetes resources, supporting environment separation and access control best practices.
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  # Primary namespace identifier for the backend application
+  name: backend
+  
+  # Application and environment labels for resource organization and selection
+  labels:
+    app: nodejs-tutorial
+    environment: production
+    # Additional labels for resource management and monitoring
+    component: backend
+    version: v1.0.0
+    managed-by: kubernetes
+    
+  # Descriptive annotations providing context and documentation
+  annotations:
+    description: "Namespace for Node.js tutorial backend application and all related Kubernetes resources."
+    # Documentation and contact information
+    documentation: "https://github.com/nodejs-tutorial/backend"
+    contact: "backend-team@nodejs-tutorial.com"
+    # Deployment and lifecycle information
+    deployment-strategy: "rolling-update"
+    created-by: "infrastructure-team"
+    # Resource management annotations
+    resource-quota: "enabled"
+    network-policy: "enabled"
+    # Monitoring and observability annotations
+    monitoring: "enabled"
+    logging: "enabled"
+    # Educational context annotation
+    educational-purpose: "Node.js tutorial application demonstrating containerized backend deployment"
