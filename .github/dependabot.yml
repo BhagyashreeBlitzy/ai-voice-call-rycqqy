@@ -1,0 +1,345 @@
+# =============================================================================
+# GitHub Dependabot Configuration for Node.js Tutorial Backend
+# =============================================================================
+# 
+# This configuration file instructs GitHub Dependabot to automatically monitor,
+# check, and propose updates for npm (JavaScript), Docker, and GitHub Actions
+# dependencies used in the Node.js tutorial application. It ensures the project
+# remains secure, up-to-date, and aligned with best practices for dependency
+# management, CI/CD, and containerization.
+#
+# Educational Purpose:
+# Demonstrates automated dependency management best practices for Node.js/Express
+# applications with comprehensive security monitoring and update automation.
+#
+# Key Features:
+# - NPM dependency monitoring for Express 5.1.0 and related packages
+# - Docker base image updates for Node.js 22.x LTS Alpine images
+# - GitHub Actions workflow dependency updates
+# - Security-focused update scheduling with educational transparency
+# - Integration with CI/CD pipeline for automated testing of updates
+# - Configurable update frequency and PR limits for educational projects
+#
+# Security Benefits:
+# - Automated security vulnerability patching
+# - Regular dependency audit and update notifications
+# - Integration with GitHub Security features
+# - Proactive dependency management reducing security risks
+# - Educational demonstration of modern DevSecOps practices
+# =============================================================================
+
+# Dependabot configuration file format version
+# Version 2 is required for all modern Dependabot configurations
+version: 2
+
+# =============================================================================
+# DEPENDENCY UPDATE CONFIGURATION
+# =============================================================================
+
+# Define update configurations for different package ecosystems
+updates:
+  # ---------------------------------------------------------------------------
+  # NPM Dependencies (JavaScript/Node.js)
+  # ---------------------------------------------------------------------------
+  # Monitor npm dependencies in the backend Node.js application
+  # Includes both production dependencies (Express 5.1.0, etc.) and 
+  # development dependencies (Jest, ESLint, etc.)
+  - package-ecosystem: "npm"
+    
+    # Directory containing package.json and package-lock.json
+    # Points to the backend source directory with Node.js dependencies
+    directory: "/src/backend"
+    
+    # Update schedule configuration
+    schedule:
+      # Check for updates daily to ensure rapid security patch adoption
+      # Educational projects benefit from frequent update visibility
+      interval: "daily"
+      
+      # Specify timezone for consistent scheduling
+      # UTC ensures consistent timing across different development environments
+      timezone: "UTC"
+      
+      # Schedule updates during off-peak hours for minimal disruption
+      # 02:00 UTC (early morning) provides good global coverage
+      time: "02:00"
+    
+    # Pull request configuration
+    # Limit concurrent open pull requests to prevent overwhelming maintainers
+    # 10 PRs allows for comprehensive coverage while maintaining manageability
+    open-pull-requests-limit: 10
+    
+    # Assignment configuration for review and approval
+    # Ensures updates are reviewed by appropriate team members
+    assignees:
+      - "@maintainers"
+    
+    # Reviewer configuration (optional)
+    # reviewers:
+    #   - "security-team"
+    #   - "backend-team"
+    
+    # Label configuration for PR categorization
+    labels:
+      - "dependencies"
+      - "npm"
+      - "backend"
+      - "security"
+      - "automated"
+    
+    # Commit message configuration
+    commit-message:
+      # Standardize commit message format for consistency
+      prefix: "npm"
+      prefix-development: "npm-dev"
+      include: "scope"
+    
+    # Version requirement strategy
+    # increase-if-necessary: Updates to maintain compatibility
+    # increase: Always updates to latest versions
+    versioning-strategy: increase-if-necessary
+    
+    # Target branch for pull requests
+    # Use main branch for production-ready updates
+    target-branch: "main"
+    
+    # Vendor directory configuration (if applicable)
+    # vendor: true
+    
+    # Allow automatic dependency updates for security patches
+    # Enables automatic merging of security updates when CI passes
+    allow:
+      - dependency-type: "direct"
+        update-type: "security"
+      - dependency-type: "indirect"
+        update-type: "security"
+    
+    # Ignore specific dependencies or versions if needed
+    # Uncomment and configure as needed for project-specific requirements
+    # ignore:
+    #   - dependency-name: "express"
+    #     versions: ["4.x"]
+    #   - dependency-name: "lodash"
+    #     update-types: ["version-update:semver-major"]
+    
+    # Groups for bundling related updates
+    groups:
+      # Group Express-related packages together
+      express-ecosystem:
+        patterns:
+          - "express*"
+          - "body-parser"
+          - "@types/express"
+      
+      # Group testing-related packages together
+      testing-framework:
+        patterns:
+          - "jest*"
+          - "supertest"
+          - "@types/jest"
+      
+      # Group linting and formatting packages together
+      code-quality:
+        patterns:
+          - "eslint*"
+          - "prettier"
+          - "@types/*"
+      
+      # Group development tools together
+      dev-tools:
+        patterns:
+          - "nodemon"
+          - "typescript"
+          - "chalk"
+          - "dotenv"
+
+  # ---------------------------------------------------------------------------
+  # Docker Dependencies (Container Images)
+  # ---------------------------------------------------------------------------
+  # Monitor Docker base images and referenced images in Dockerfile
+  # Includes Node.js Alpine base images and any other container dependencies
+  - package-ecosystem: "docker"
+    
+    # Directory containing Dockerfile and docker-compose.yml
+    # Points to the Docker infrastructure configuration directory
+    directory: "/infrastructure/docker"
+    
+    # Update schedule configuration
+    schedule:
+      # Check for updates daily to ensure latest security patches
+      # Container image updates are critical for security
+      interval: "daily"
+      
+      # Timezone configuration for consistent scheduling
+      timezone: "UTC"
+      
+      # Schedule during off-peak hours
+      time: "03:00"
+    
+    # Pull request configuration
+    # Limit concurrent Docker PRs to focus on critical updates
+    # 5 PRs provide sufficient coverage for container dependencies
+    open-pull-requests-limit: 5
+    
+    # Assignment configuration
+    assignees:
+      - "@maintainers"
+    
+    # Label configuration for Docker-specific categorization
+    labels:
+      - "dependencies"
+      - "docker"
+      - "infrastructure"
+      - "security"
+      - "automated"
+    
+    # Commit message configuration
+    commit-message:
+      prefix: "docker"
+      include: "scope"
+    
+    # Version requirement strategy for container images
+    # increase: Always update to latest stable versions
+    versioning-strategy: increase
+    
+    # Target branch for container updates
+    target-branch: "main"
+    
+    # Allow automatic updates for security patches
+    allow:
+      - dependency-type: "direct"
+        update-type: "security"
+    
+    # Groups for bundling related Docker updates
+    groups:
+      # Group Node.js base images together
+      nodejs-images:
+        patterns:
+          - "node"
+          - "node:*-alpine"
+          - "node:*-slim"
+
+  # ---------------------------------------------------------------------------
+  # GitHub Actions Dependencies (CI/CD Workflows)
+  # ---------------------------------------------------------------------------
+  # Monitor GitHub Actions used in CI/CD workflows
+  # Includes actions for checkout, Node.js setup, caching, and security scanning
+  - package-ecosystem: "github-actions"
+    
+    # Directory containing GitHub Actions workflow files
+    # Points to the .github/workflows directory
+    directory: "/.github/workflows"
+    
+    # Update schedule configuration
+    schedule:
+      # Check for updates daily to ensure latest workflow security
+      # GitHub Actions updates often include security improvements
+      interval: "daily"
+      
+      # Timezone configuration
+      timezone: "UTC"
+      
+      # Schedule during off-peak hours
+      time: "04:00"
+    
+    # Pull request configuration
+    # Limit concurrent GitHub Actions PRs
+    # 5 PRs provide sufficient coverage for workflow dependencies
+    open-pull-requests-limit: 5
+    
+    # Assignment configuration
+    assignees:
+      - "@maintainers"
+    
+    # Label configuration for GitHub Actions categorization
+    labels:
+      - "dependencies"
+      - "github-actions"
+      - "ci-cd"
+      - "security"
+      - "automated"
+    
+    # Commit message configuration
+    commit-message:
+      prefix: "github-actions"
+      include: "scope"
+    
+    # Version requirement strategy for GitHub Actions
+    # increase: Always update to latest stable versions
+    versioning-strategy: increase
+    
+    # Target branch for workflow updates
+    target-branch: "main"
+    
+    # Allow automatic updates for security patches
+    allow:
+      - dependency-type: "direct"
+        update-type: "security"
+    
+    # Groups for bundling related GitHub Actions updates
+    groups:
+      # Group core GitHub Actions together
+      core-actions:
+        patterns:
+          - "actions/checkout"
+          - "actions/setup-node"
+          - "actions/cache"
+          - "actions/upload-artifact"
+          - "actions/github-script"
+      
+      # Group security-related actions together
+      security-actions:
+        patterns:
+          - "github/codeql-action/*"
+          - "github/super-linter"
+          - "securecodewarrior/github-action-add-sarif"
+      
+      # Group additional utility actions together
+      utility-actions:
+        patterns:
+          - "actions/download-artifact"
+          - "actions/deploy-pages"
+          - "actions/configure-pages"
+
+# =============================================================================
+# CONFIGURATION NOTES AND EDUCATIONAL GUIDANCE
+# =============================================================================
+
+# Educational Benefits:
+# 1. Automated Security: Demonstrates proactive security management
+# 2. Dependency Hygiene: Shows best practices for keeping dependencies current
+# 3. CI/CD Integration: Integrates with existing CI pipeline for validation
+# 4. Transparency: Provides clear visibility into dependency update process
+# 5. Reproducibility: Ensures consistent builds with updated dependencies
+
+# Security Considerations:
+# 1. All updates trigger CI pipeline for validation before merging
+# 2. Security updates are prioritized with automatic approval capabilities
+# 3. Version strategies balance stability with security updates
+# 4. Comprehensive monitoring across all dependency types
+# 5. Grouping strategies prevent dependency conflicts
+
+# Operational Benefits:
+# 1. Reduces manual dependency maintenance overhead
+# 2. Ensures timely security patch application
+# 3. Provides automated documentation of dependency changes
+# 4. Integrates with GitHub Security features for vulnerability tracking
+# 5. Supports educational objectives with clear, documented processes
+
+# Customization Options:
+# 1. Adjust update schedules based on project requirements
+# 2. Configure ignore patterns for specific dependencies
+# 3. Modify PR limits based on team capacity
+# 4. Add custom reviewers and assignees
+# 5. Configure branch targeting for different environments
+
+# Monitoring and Maintenance:
+# 1. Regular review of Dependabot PR quality and relevance
+# 2. Periodic adjustment of configuration based on project evolution
+# 3. Integration with security scanning and vulnerability management
+# 4. Performance monitoring of update impact on CI/CD pipeline
+# 5. Documentation updates reflecting dependency management learnings
+
+# =============================================================================
+# END OF DEPENDABOT CONFIGURATION
+# =============================================================================
