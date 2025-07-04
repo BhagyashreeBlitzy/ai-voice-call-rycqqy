@@ -1,51 +1,62 @@
+# Node.js dependencies
 node_modules/
-.pnpm-store/
-.npm/
+
+# Dependency lock files (optional, if not committed)
 package-lock.json
 yarn.lock
+pnpm-lock.yaml
 
-# Environment
+# Environment variables
 .env
 .env.*
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+logs/
+*.log
 
 # Build outputs
 dist/
 build/
 coverage/
-.nyc_output/
-test-report/
-junit.xml
 
-# IDE
-.idea/
+# Test output
+test-output/
+test-results/
+coverage/
+
+# IDE/editor settings
 .vscode/
+.idea/
+*.sublime-workspace
+*.sublime-project
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Docker artifacts
+docker-compose.override.yml
+
+# Kubernetes artifacts
+*.local.yaml
+
+# Miscellaneous
 *.swp
 *.swo
 
-# System files
-.DS_Store
-*.log
+# Infrastructure scripts output
+infrastructure/scripts/*.log
 
-# Security
-*.pem
-*.key
-*.cert
+# Ignore compiled TypeScript (if present)
+*.tsbuildinfo
 
-# Infrastructure
-terraform.tfstate*
-.terraform/
-*.tfvars
-.kube/
-.docker/
-*.local.yaml
-
-# Temporary
-tmp/
-temp/
-*.tmp
-
-# Logs and reports
-*.log
-coverage/
-test-report/
-junit.xml
+# Ignore local configuration overrides
+src/backend/.env
+src/backend/.env.local
+src/backend/.env.development.local
+src/backend/.env.test.local
+src/backend/.env.production.local
