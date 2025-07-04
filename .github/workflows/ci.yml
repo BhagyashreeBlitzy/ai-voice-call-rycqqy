@@ -1,0 +1,234 @@
+# GitHub Actions CI Workflow for Node.js Tutorial Backend
+# Purpose: Automated continuous integration pipeline for linting, type-checking, and testing
+# Framework: GitHub Actions with Node.js matrix builds supporting 18.x and 22.x LTS versions
+# Integration: Express 5.1.0, Jest ^29.0.0, ESLint ^8.0.0, and TypeScript for comprehensive code quality
+
+name: CI
+
+# Workflow trigger configuration for continuous integration
+# Supports push events and pull requests to main branches and feature development
+on:
+  push:
+    branches:
+      - main
+      - develop
+      - 'feature/**'
+      - 'hotfix/**'
+      - 'release/**'
+    paths:
+      - 'src/backend/**'
+      - '.github/workflows/ci.yml'
+      - 'package.json'
+      - 'package-lock.json'
+  pull_request:
+    branches:
+      - main
+      - develop
+    paths:
+      - 'src/backend/**'
+      - '.github/workflows/ci.yml'
+      - 'package.json'
+      - 'package-lock.json'
+
+# Environment variables for consistent CI execution
+env:
+  NODE_ENV: test
+  CI: true
+  FAIL_ON_WARNINGS: false
+
+# Job configuration with comprehensive testing matrix
+jobs:
+  # Primary CI job with matrix strategy for Node.js LTS compatibility
+  ci:
+    name: CI (Node.js ${{ matrix.node-version }})
+    runs-on: ubuntu-latest
+    
+    # Matrix strategy for Node.js LTS version compatibility testing
+    # Supports Node.js 18.x (minimum required) and 22.x (latest LTS)
+    strategy:
+      matrix:
+        node-version: ['18.x', '22.x']
+      fail-fast: false
+    
+    # Sequential step execution for comprehensive code quality validation
+    steps:
+      # Step 1: Repository checkout using official GitHub action
+      # actions/checkout@v4 - Latest stable version for reliable code retrieval
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          clean: true
+          
+      # Step 2: Node.js environment setup with matrix version support
+      # actions/setup-node@v4 - Configures Node.js runtime with npm caching
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+          cache-dependency-path: 'src/backend/package-lock.json'
+          registry-url: 'https://registry.npmjs.org'
+          
+      # Step 3: Dependency installation with npm ci for reproducible builds
+      # npm ci provides faster, reliable, reproducible builds for CI environments
+      - name: Install dependencies
+        run: npm ci --prefer-offline --no-audit --progress=false
+        working-directory: src/backend
+        env:
+          NODE_ENV: test
+          
+      # Step 4: Cache node_modules for improved performance
+      # Caches dependencies to speed up subsequent workflow runs
+      - name: Cache Node.js modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            src/backend/node_modules
+            ~/.npm
+          key: ${{ runner.os }}-node-${{ matrix.node-version }}-${{ hashFiles('src/backend/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-${{ matrix.node-version }}-
+            ${{ runner.os }}-node-
+            
+      # Step 5: ESLint code quality validation
+      # Executes ESLint using the project's custom lint script with comprehensive rule checking
+      - name: Run ESLint code quality check
+        run: npm run lint
+        working-directory: src/backend
+        env:
+          NODE_ENV: test
+          
+      # Step 6: TypeScript type checking validation
+      # Performs type checking using TypeScript compiler without emitting files
+      - name: Run TypeScript type checking
+        run: npx tsc --noEmit --pretty
+        working-directory: src/backend
+        env:
+          NODE_ENV: test
+          
+      # Step 7: Jest test suite execution with coverage collection
+      # Runs comprehensive test suite including unit, integration, and application tests
+      - name: Run test suite with coverage
+        run: npm test
+        working-directory: src/backend
+        env:
+          NODE_ENV: test
+          CI: true
+          
+      # Step 8: Upload test coverage artifacts
+      # Preserves coverage reports for analysis and integration with external tools
+      - name: Upload coverage reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-reports-node-${{ matrix.node-version }}
+          path: src/backend/coverage
+          retention-days: 30
+          if-no-files-found: warn
+          
+      # Step 9: Upload test results artifacts
+      # Preserves test execution results for debugging and analysis
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-node-${{ matrix.node-version }}
+          path: |
+            src/backend/coverage/jest-report.html
+            src/backend/coverage/lcov.info
+            src/backend/coverage/coverage-final.json
+          retention-days: 30
+          if-no-files-found: warn
+          
+      # Step 10: Comment coverage summary on pull requests
+      # Provides immediate feedback on code coverage changes in pull requests
+      - name: Comment coverage on PR
+        uses: actions/github-script@v7
+        if: github.event_name == 'pull_request' && matrix.node-version == '22.x'
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+            
+            try {
+              const coverageFile = path.join('src/backend/coverage/coverage-summary.json');
+              if (fs.existsSync(coverageFile)) {
+                const coverage = JSON.parse(fs.readFileSync(coverageFile, 'utf8'));
+                const total = coverage.total;
+                
+                const comment = `## 📊 Coverage Report (Node.js ${{ matrix.node-version }})
+                
+                | Metric | Percentage | Covered/Total |
+                |--------|------------|---------------|
+                | Lines | ${total.lines.pct}% | ${total.lines.covered}/${total.lines.total} |
+                | Statements | ${total.statements.pct}% | ${total.statements.covered}/${total.statements.total} |
+                | Functions | ${total.functions.pct}% | ${total.functions.covered}/${total.functions.total} |
+                | Branches | ${total.branches.pct}% | ${total.branches.covered}/${total.branches.total} |
+                
+                Coverage reports are available in the workflow artifacts.`;
+                
+                github.rest.issues.createComment({
+                  issue_number: context.issue.number,
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  body: comment
+                });
+              }
+            } catch (error) {
+              console.log('Coverage comment failed:', error.message);
+            }
+
+  # Quality gate job to ensure all CI checks pass
+  quality-gate:
+    name: Quality Gate
+    runs-on: ubuntu-latest
+    needs: ci
+    if: always()
+    
+    steps:
+      # Step 1: Check CI job results
+      - name: Check CI results
+        run: |
+          echo "CI job results:"
+          echo "Node.js 18.x: ${{ needs.ci.result }}"
+          echo "Node.js 22.x: ${{ needs.ci.result }}"
+          
+          if [ "${{ needs.ci.result }}" != "success" ]; then
+            echo "❌ CI checks failed"
+            exit 1
+          else
+            echo "✅ All CI checks passed"
+          fi
+          
+      # Step 2: Post success notification
+      - name: Success notification
+        if: success()
+        run: |
+          echo "🎉 Quality gate passed successfully!"
+          echo "✅ Code quality validation completed"
+          echo "✅ Type checking completed"
+          echo "✅ Test suite execution completed"
+          echo "✅ Coverage collection completed"
+          
+      # Step 3: Post failure notification
+      - name: Failure notification
+        if: failure()
+        run: |
+          echo "❌ Quality gate failed!"
+          echo "Please review the CI job results and fix any issues."
+          echo "Check the workflow logs for detailed error information."
+          exit 1
+
+# Workflow configuration for enhanced security and reliability
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Default permissions for enhanced security
+permissions:
+  contents: read
+  pull-requests: write
+  actions: read
+  checks: write

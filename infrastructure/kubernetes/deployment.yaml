@@ -1,0 +1,222 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nodejs-tutorial-backend
+  labels:
+    app: nodejs-tutorial-backend
+    version: v1.0.0
+    component: backend
+    tier: application
+    environment: production
+    managed-by: kubernetes
+  annotations:
+    deployment.kubernetes.io/revision: "1"
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"apps/v1","kind":"Deployment","metadata":{"name":"nodejs-tutorial-backend","labels":{"app":"nodejs-tutorial-backend"}}}
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "3000"
+    prometheus.io/path: "/metrics"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nodejs-tutorial-backend
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: nodejs-tutorial-backend
+        version: v1.0.0
+        component: backend
+        tier: application
+        environment: production
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "3000"
+        prometheus.io/path: "/metrics"
+    spec:
+      # Security context for the pod
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+        fsGroup: 1001
+        supplementalGroups:
+          - 1001
+        seccompProfile:
+          type: RuntimeDefault
+      
+      # Container specifications
+      containers:
+        - name: nodejs-tutorial-backend
+          image: nodejs-tutorial-backend:latest
+          imagePullPolicy: IfNotPresent
+          
+          # Container ports configuration
+          ports:
+            - name: http
+              containerPort: 3000
+              protocol: TCP
+          
+          # Environment variables configuration
+          env:
+            - name: ENVIRONMENT
+              value: "production"
+            - name: PORT
+              value: "3000"
+            - name: NODE_ENV
+              value: "production"
+            - name: ENABLE_MONITORING
+              value: "true"
+            - name: LOG_LEVEL
+              value: "info"
+            - name: ENABLE_HEALTH_CHECKS
+              value: "true"
+            - name: ENABLE_SECURITY_HEADERS
+              value: "true"
+            - name: ENABLE_RATE_LIMITING
+              value: "true"
+            - name: ENABLE_COMPRESSION
+              value: "true"
+            - name: REQUEST_TIMEOUT
+              value: "30000"
+            - name: ENABLE_DEV_MODE
+              value: "false"
+            - name: ENABLE_DEBUG_ERRORS
+              value: "false"
+            - name: ENABLE_AUTO_RESTART
+              value: "false"
+            - name: TZ
+              value: "UTC"
+            - name: NODE_OPTIONS
+              value: "--no-source-maps"
+          
+          # Resource requests and limits
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "128Mi"
+            limits:
+              cpu: "250m"
+              memory: "512Mi"
+          
+          # Liveness probe configuration
+          livenessProbe:
+            httpGet:
+              path: /hello
+              port: 3000
+              scheme: HTTP
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            successThreshold: 1
+            failureThreshold: 3
+          
+          # Readiness probe configuration
+          readinessProbe:
+            httpGet:
+              path: /hello
+              port: 3000
+              scheme: HTTP
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            successThreshold: 1
+            failureThreshold: 2
+          
+          # Startup probe configuration (for Express 5.1.0 initialization)
+          startupProbe:
+            httpGet:
+              path: /hello
+              port: 3000
+              scheme: HTTP
+            initialDelaySeconds: 3
+            periodSeconds: 2
+            timeoutSeconds: 2
+            successThreshold: 1
+            failureThreshold: 15
+          
+          # Container security context
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1001
+            runAsGroup: 1001
+            readOnlyRootFilesystem: false
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+              add:
+                - NET_BIND_SERVICE
+            seccompProfile:
+              type: RuntimeDefault
+          
+          # Lifecycle hooks for graceful shutdown
+          lifecycle:
+            preStop:
+              exec:
+                command:
+                  - /bin/sh
+                  - -c
+                  - "sleep 5"
+          
+          # Volume mounts for temporary storage
+          volumeMounts:
+            - name: tmp-storage
+              mountPath: /tmp
+            - name: nodejs-cache
+              mountPath: /usr/src/app/.npm
+      
+      # Pod-level volumes
+      volumes:
+        - name: tmp-storage
+          emptyDir:
+            sizeLimit: 100Mi
+        - name: nodejs-cache
+          emptyDir:
+            sizeLimit: 50Mi
+      
+      # Restart policy
+      restartPolicy: Always
+      
+      # Termination grace period for graceful shutdown
+      terminationGracePeriodSeconds: 30
+      
+      # DNS policy for service discovery
+      dnsPolicy: ClusterFirst
+      
+      # Service account (using default for educational purposes)
+      serviceAccountName: default
+      
+      # Node selection and affinity rules
+      nodeSelector:
+        kubernetes.io/os: linux
+      
+      # Tolerations for node scheduling
+      tolerations:
+        - key: "node.kubernetes.io/not-ready"
+          operator: "Exists"
+          effect: "NoExecute"
+          tolerationSeconds: 300
+        - key: "node.kubernetes.io/unreachable"
+          operator: "Exists"
+          effect: "NoExecute"
+          tolerationSeconds: 300
+      
+      # Pod affinity and anti-affinity rules
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app
+                      operator: In
+                      values:
+                        - nodejs-tutorial-backend
+                topologyKey: kubernetes.io/hostname

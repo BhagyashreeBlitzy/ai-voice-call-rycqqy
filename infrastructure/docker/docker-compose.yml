@@ -1,0 +1,413 @@
+# =============================================================================
+# Node.js Tutorial Backend - Docker Compose Configuration
+# =============================================================================
+# 
+# This Docker Compose file orchestrates the Node.js tutorial backend service
+# in a containerized environment, supporting both development and production
+# scenarios with comprehensive configuration management, networking, and
+# monitoring capabilities.
+#
+# Key Features:
+# - Express 5.1.0 backend service with Node.js 22.x LTS
+# - Environment-based configuration management
+# - Development hot-reloading with volume mounting
+# - Production-ready deployment settings
+# - Comprehensive logging and monitoring
+# - Graceful shutdown and restart policies
+# - Network isolation and security
+#
+# Usage:
+#   Development: docker-compose up
+#   Production: docker-compose -f docker-compose.yml -f docker-compose.prod.yml up
+#   Background: docker-compose up -d
+#   Logs: docker-compose logs -f backend
+#
+# =============================================================================
+
+# Docker Compose file format version
+# Version 3.8 provides comprehensive service orchestration capabilities
+# including healthchecks, init support, and advanced networking features
+version: '3.8'
+
+# =============================================================================
+# SERVICE DEFINITIONS
+# =============================================================================
+
+services:
+  # ---------------------------------------------------------------------------
+  # Backend Service - Node.js Tutorial Application
+  # ---------------------------------------------------------------------------
+  backend:
+    # Container identification and metadata
+    container_name: nodejs-tutorial-backend
+    hostname: backend
+    
+    # Build configuration using multi-stage Dockerfile
+    build:
+      # Build context points to project root for comprehensive file access
+      context: ../../
+      # Dockerfile location relative to build context
+      dockerfile: infrastructure/docker/Dockerfile
+      # Build-time arguments for customization
+      args:
+        NODE_VERSION: 22
+        BUILD_DATE: ${BUILD_DATE:-$(date -u +'%Y-%m-%dT%H:%M:%SZ')}
+        VCS_REF: ${VCS_REF:-HEAD}
+      # Build target for development vs production optimizations
+      target: base
+      # Container labels for metadata and monitoring
+      labels:
+        - "com.tutorial.service=backend"
+        - "com.tutorial.environment=${ENVIRONMENT:-development}"
+        - "com.tutorial.version=1.0.0"
+        - "com.tutorial.description=Node.js tutorial backend with Express 5.1.0"
+        - "com.tutorial.maintainer=Tutorial Authors"
+        - "com.tutorial.nodejs.version=22.x"
+        - "com.tutorial.express.version=5.1.0"
+        - "com.tutorial.build.date=${BUILD_DATE:-$(date -u +'%Y-%m-%dT%H:%M:%SZ')}"
+        - "com.tutorial.vcs.ref=${VCS_REF:-HEAD}"
+    
+    # Port mapping configuration
+    ports:
+      # Map container port 3000 to host port 3000
+      # Format: "host:container" or "port" (for same port on both sides)
+      - "${PORT:-3000}:3000"
+    
+    # Environment variables configuration
+    environment:
+      # Core application environment settings
+      - NODE_ENV=${NODE_ENV:-development}
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+      - PORT=3000
+      
+      # Performance and monitoring settings
+      - ENABLE_MONITORING=${ENABLE_MONITORING:-true}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - ENABLE_HEALTH_CHECKS=${ENABLE_HEALTH_CHECKS:-true}
+      
+      # Security configuration
+      - ENABLE_SECURITY_HEADERS=${ENABLE_SECURITY_HEADERS:-false}
+      - ENABLE_RATE_LIMITING=${ENABLE_RATE_LIMITING:-false}
+      
+      # Performance optimization settings
+      - ENABLE_COMPRESSION=${ENABLE_COMPRESSION:-false}
+      - REQUEST_TIMEOUT=${REQUEST_TIMEOUT:-30000}
+      
+      # Development-specific settings
+      - ENABLE_DEV_MODE=${ENABLE_DEV_MODE:-true}
+      - ENABLE_DEBUG_ERRORS=${ENABLE_DEBUG_ERRORS:-true}
+      
+      # Node.js runtime optimizations
+      - NODE_OPTIONS=--max-old-space-size=512
+      
+      # Container-specific environment variables
+      - DOCKER_CONTAINER=true
+      - CONTAINER_NAME=nodejs-tutorial-backend
+    
+    # Environment file configuration for sensitive and local settings
+    env_file:
+      # Load environment variables from .env file
+      # Create this file by copying from .env.example
+      - ../../src/backend/.env
+    
+    # Volume mounting for development hot-reloading and data persistence
+    volumes:
+      # Mount source code directory for development hot-reloading
+      # This enables real-time code changes without container rebuilds
+      - type: bind
+        source: ../../src/backend
+        target: /usr/src/app
+        consistency: cached
+        read_only: false
+      
+      # Mount node_modules as named volume for performance optimization
+      # Prevents host node_modules from overriding container dependencies
+      - type: volume
+        source: nodejs-tutorial-node-modules
+        target: /usr/src/app/node_modules
+        read_only: false
+      
+      # Mount package.json and package-lock.json for dependency management
+      - type: bind
+        source: ../../src/backend/package.json
+        target: /usr/src/app/package.json
+        read_only: true
+      
+      - type: bind
+        source: ../../src/backend/package-lock.json
+        target: /usr/src/app/package-lock.json
+        read_only: true
+    
+    # Network configuration
+    networks:
+      # Connect to custom backend network for service isolation
+      - backend-network
+    
+    # Container command override for development mode
+    # Use nodemon for automatic restart on file changes in development
+    command: >
+      sh -c "
+        if [ \"${NODE_ENV:-development}\" = \"development\" ]; then
+          echo 'Starting in development mode with hot-reloading...';
+          npm run dev;
+        else
+          echo 'Starting in production mode...';
+          npm start;
+        fi
+      "
+    
+    # Restart policy for container resilience
+    restart: unless-stopped
+    
+    # Health check configuration for monitoring and orchestration
+    healthcheck:
+      # HTTP health check against the /hello endpoint
+      test: ["CMD", "node", "-e", "
+        const http = require('http');
+        const options = {
+          hostname: 'localhost',
+          port: 3000,
+          path: '/hello',
+          method: 'GET',
+          timeout: 5000
+        };
+        const req = http.request(options, (res) => {
+          if (res.statusCode === 200) {
+            console.log('Health check passed');
+            process.exit(0);
+          } else {
+            console.log('Health check failed:', res.statusCode);
+            process.exit(1);
+          }
+        });
+        req.on('error', (err) => {
+          console.log('Health check error:', err.message);
+          process.exit(1);
+        });
+        req.on('timeout', () => {
+          console.log('Health check timeout');
+          req.destroy();
+          process.exit(1);
+        });
+        req.end();
+      "]
+      # Health check timing configuration
+      interval: 30s      # Check every 30 seconds
+      timeout: 10s       # Timeout after 10 seconds
+      retries: 3         # Retry 3 times before marking as unhealthy
+      start_period: 40s  # Wait 40 seconds before starting health checks
+    
+    # Container resource limits for performance and security
+    deploy:
+      resources:
+        # Resource limits to prevent container resource exhaustion
+        limits:
+          cpus: '1.0'          # Maximum 1 CPU core
+          memory: 512M         # Maximum 512MB memory
+        # Resource reservations for guaranteed performance
+        reservations:
+          cpus: '0.25'         # Reserve 0.25 CPU core
+          memory: 128M         # Reserve 128MB memory
+    
+    # Logging configuration for centralized log management
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"        # Maximum log file size
+        max-file: "3"          # Maximum number of log files
+        compress: "true"       # Compress rotated log files
+        labels: "com.tutorial.service,com.tutorial.environment"
+    
+    # Security configuration
+    security_opt:
+      # Enable container security features
+      - no-new-privileges:true
+    
+    # User configuration for security (runs as non-root user)
+    user: "1001:1001"
+    
+    # Working directory inside container
+    working_dir: /usr/src/app
+    
+    # Process initialization for proper signal handling
+    init: true
+    
+    # Environment-specific overrides and configurations
+    profiles:
+      # Development profile for enhanced debugging
+      - development
+      # Production profile for optimized performance
+      - production
+    
+    # Dependency configuration
+    depends_on:
+      # Add dependencies here when adding database or other services
+      # Example: db, redis, etc.
+      # For now, backend is standalone
+      {}
+    
+    # Additional container labels for monitoring and management
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.backend.rule=Host(`localhost`)"
+      - "traefik.http.routers.backend.entrypoints=web"
+      - "traefik.http.services.backend.loadbalancer.server.port=3000"
+      - "com.tutorial.service.type=backend"
+      - "com.tutorial.service.framework=express"
+      - "com.tutorial.service.language=javascript"
+      - "com.tutorial.service.runtime=nodejs"
+
+# =============================================================================
+# NETWORK DEFINITIONS
+# =============================================================================
+
+networks:
+  # Backend network for service isolation and communication
+  backend-network:
+    # Use bridge driver for container-to-container communication
+    driver: bridge
+    
+    # Network configuration options
+    driver_opts:
+      # Enable inter-container communication
+      com.docker.network.bridge.enable_icc: "true"
+      # Enable IP masquerading for external access
+      com.docker.network.bridge.enable_ip_masquerade: "true"
+      # Network name for identification
+      com.docker.network.bridge.name: "tutorial-backend-bridge"
+    
+    # Enable IPv6 support (optional)
+    enable_ipv6: false
+    
+    # Internal network flag for security
+    internal: false
+    
+    # Attachable flag for external container attachment
+    attachable: true
+    
+    # Network labels for identification and management
+    labels:
+      - "com.tutorial.network.purpose=backend-communication"
+      - "com.tutorial.network.environment=${ENVIRONMENT:-development}"
+      - "com.tutorial.network.version=1.0.0"
+    
+    # IPAM (IP Address Management) configuration
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.20.0.0/16
+          gateway: 172.20.0.1
+    
+    # DNS configuration for service discovery
+    external: false
+
+# =============================================================================
+# VOLUME DEFINITIONS
+# =============================================================================
+
+volumes:
+  # Node.js modules volume for dependency caching and performance
+  nodejs-tutorial-node-modules:
+    # Use local driver for persistent storage
+    driver: local
+    
+    # Volume configuration options
+    driver_opts:
+      # Mount options for performance optimization
+      type: none
+      o: bind
+      device: /tmp/nodejs-tutorial-node-modules
+    
+    # Volume labels for identification and management
+    labels:
+      - "com.tutorial.volume.purpose=node-modules-cache"
+      - "com.tutorial.volume.service=backend"
+      - "com.tutorial.volume.environment=${ENVIRONMENT:-development}"
+      - "com.tutorial.volume.version=1.0.0"
+    
+    # External volume flag
+    external: false
+
+# =============================================================================
+# CONFIGURATION EXTENSIONS AND OVERRIDES
+# =============================================================================
+
+# Development-specific configuration extensions
+# Use with: docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
+
+# Production-specific configuration extensions  
+# Use with: docker-compose -f docker-compose.yml -f docker-compose.prod.yml up
+
+# =============================================================================
+# USAGE EXAMPLES AND COMMANDS
+# =============================================================================
+
+# Development Commands:
+# docker-compose up                    # Start in development mode
+# docker-compose up -d                 # Start in background
+# docker-compose logs -f backend       # Follow logs
+# docker-compose exec backend sh       # Access container shell
+# docker-compose down                  # Stop and remove containers
+# docker-compose down -v               # Stop and remove containers + volumes
+# docker-compose restart backend       # Restart backend service
+# docker-compose pull                  # Pull latest images
+# docker-compose build --no-cache      # Rebuild images without cache
+
+# Production Commands:
+# docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+# docker-compose -f docker-compose.yml -f docker-compose.prod.yml logs -f
+# docker-compose -f docker-compose.yml -f docker-compose.prod.yml down
+
+# Monitoring Commands:
+# docker-compose ps                    # Show running services
+# docker-compose top                   # Show running processes
+# docker stats                         # Show resource usage
+# docker-compose config                # Validate and view configuration
+
+# Health Check Commands:
+# docker-compose exec backend curl http://localhost:3000/hello
+# docker inspect nodejs-tutorial-backend --format='{{.State.Health.Status}}'
+
+# =============================================================================
+# SECURITY CONSIDERATIONS
+# =============================================================================
+
+# 1. Non-root user execution (user: "1001:1001")
+# 2. Network isolation with custom bridge network
+# 3. Resource limits to prevent DoS attacks
+# 4. Security options with no-new-privileges
+# 5. Read-only file system mounts where possible
+# 6. Secrets management through environment files
+# 7. Container image scanning and updates
+# 8. Proper signal handling with init: true
+
+# =============================================================================
+# PERFORMANCE OPTIMIZATIONS
+# =============================================================================
+
+# 1. Volume mounting for node_modules caching
+# 2. Bind mounts with consistency options for development
+# 3. Resource reservations and limits
+# 4. Logging configuration with rotation
+# 5. Health check optimization
+# 6. Container restart policies
+# 7. Network configuration for optimal communication
+# 8. Build context optimization
+
+# =============================================================================
+# EDUCATIONAL RATIONALE
+# =============================================================================
+
+# This docker-compose.yml demonstrates:
+# 1. Production-ready container orchestration
+# 2. Development and production environment support
+# 3. Comprehensive service configuration
+# 4. Network and security best practices
+# 5. Resource management and monitoring
+# 6. Logging and debugging capabilities
+# 7. Scalable and maintainable infrastructure patterns
+# 8. Educational clarity with extensive documentation
+
+# =============================================================================
+# END OF DOCKER COMPOSE CONFIGURATION
+# =============================================================================
