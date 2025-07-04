@@ -1,18 +1,28 @@
 {
   "watch": [
-    "src"
+    "app.js",
+    "server.js",
+    "routes/",
+    "middleware/",
+    "utils/",
+    "config/"
   ],
-  "ext": ".ts,.js,.json",
+  "ext": "js,json",
   "ignore": [
-    "src/**/*.spec.ts",
-    "src/**/*.test.ts"
+    "tests/",
+    "docs/",
+    "scripts/",
+    "node_modules/",
+    "*.test.js",
+    "*.spec.js",
+    "*.md"
   ],
-  "exec": "ts-node --files src/server.ts",
+  "exec": "node server.js",
   "env": {
     "NODE_ENV": "development",
-    "TS_NODE_PROJECT": "./tsconfig.json"
+    "PORT": "3000"
   },
-  "delay": "1000",
-  "verbose": true,
-  "restartable": "rs"
+  "delay": "100",
+  "legacyWatch": false,
+  "verbose": true
 }
