@@ -1,0 +1,195 @@
+# ============================================================================
+# Node.js Tutorial Application - Backend .gitignore
+# ============================================================================
+# Git ignore configuration for Node.js Express.js 5.1.0 tutorial application
+# Implements comprehensive exclusion patterns for development, testing, and
+# deployment artifacts while ensuring educational clarity and security
+# 
+# Compatible with: Node.js v22.x LTS, Express.js 5.1.0, npm 11.4.2
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# Node.js Dependencies
+# ----------------------------------------------------------------------------
+# Exclude Node.js package dependencies and package manager debug files
+# node_modules contains all installed npm packages and should never be
+# committed to version control
+
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log*
+
+# ----------------------------------------------------------------------------
+# Environment Configuration
+# ----------------------------------------------------------------------------
+# Exclude environment variable files containing sensitive configuration
+# Environment files may contain secrets, API keys, and sensitive configuration
+# that should not be shared in version control
+
+.env
+.env.local
+.env.*.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# ----------------------------------------------------------------------------
+# Application Logs
+# ----------------------------------------------------------------------------
+# Exclude application logs and debugging output files
+# Log files are generated at runtime and contain temporary debugging
+# information that doesn't belong in version control
+
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+.npm/
+
+# ----------------------------------------------------------------------------
+# Test Coverage and Reports
+# ----------------------------------------------------------------------------
+# Exclude test coverage reports and test output files
+# Coverage reports are generated during testing and should be excluded
+# while keeping test source files tracked
+
+coverage/
+.nyc_output/
+*.lcov
+.coverage/
+coverage.json
+junit.xml
+test-results.xml
+
+# ----------------------------------------------------------------------------
+# Temporary Files
+# ----------------------------------------------------------------------------
+# Exclude temporary files and cache directories
+# Temporary files are created during development and testing and should
+# not be tracked in version control
+
+*.tmp
+*.temp
+.tmp/
+.cache/
+.temp/
+tmp/
+
+# ----------------------------------------------------------------------------
+# Operating System Files
+# ----------------------------------------------------------------------------
+# Exclude OS-specific metadata and system files
+# Operating system generates these files automatically and they should
+# not be included in the project repository
+
+# macOS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+
+# Windows
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# ----------------------------------------------------------------------------
+# IDE and Editor Files
+# ----------------------------------------------------------------------------
+# Exclude IDE and text editor configuration files
+# IDE settings are personal preferences and should not be forced on
+# other developers through version control
+
+# Visual Studio Code
+.vscode/
+
+# IntelliJ IDEA / WebStorm
+.idea/
+
+# Vim
+*.swp
+*.swo
+*~
+
+# Eclipse
+.project
+.settings/
+.classpath
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# ----------------------------------------------------------------------------
+# Build Artifacts
+# ----------------------------------------------------------------------------
+# Exclude build output and generated files
+# Build artifacts are generated from source code and should be rebuilt
+# rather than committed to version control
+
+dist/
+build/
+out/
+.next/
+.nuxt/
+.vuepress/dist/
+.serverless/
+
+# ----------------------------------------------------------------------------
+# Security and Certificates
+# ----------------------------------------------------------------------------
+# Exclude security certificates and private keys
+# Private keys and certificates should never be committed to version
+# control for security reasons
+
+*.pem
+*.key
+*.crt
+*.cert
+*.ca-bundle
+*.p12
+*.pfx
+.ssh/
+
+# ----------------------------------------------------------------------------
+# Documentation Generated Files
+# ----------------------------------------------------------------------------
+# Exclude generated documentation files
+# Generated documentation is built from source files and should not be
+# tracked separately
+
+.docusaurus/
+.next/
+_site/
+.vuepress/dist/
+.gitbook/
+
+# ============================================================================
+# Educational Notes
+# ============================================================================
+# This .gitignore file demonstrates Node.js project best practices by:
+# 
+# 1. Security: Protecting sensitive environment files and certificates
+# 2. Performance: Excluding large dependency directories and build artifacts  
+# 3. Cleanliness: Preventing OS-specific and temporary files from cluttering
+# 4. Collaboration: Avoiding personal IDE settings in shared repositories
+# 5. Maintainability: Organizing patterns with clear categories and comments
+#
+# Key Concepts Demonstrated:
+# - Git version control best practices for Node.js projects
+# - Security considerations with environment file exclusion
+# - Dependency management patterns with node_modules exclusion
+# - Test artifact management and coverage report handling
+# - Cross-platform development with OS file exclusions
+# - Development workflow optimization through IDE file exclusions
+#
+# Maintenance Guidelines:
+# - Review and update patterns when adding new tools or frameworks
+# - Add patterns for new build outputs or generated files
+# - Update IDE patterns when team changes development environments
+# - Coordinate updates when changing project structure
+# ============================================================================
