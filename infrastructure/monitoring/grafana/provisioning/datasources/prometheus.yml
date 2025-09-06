@@ -1,0 +1,248 @@
+# =============================================================================
+# GRAFANA PROMETHEUS DATASOURCE PROVISIONING CONFIGURATION
+# =============================================================================
+#
+# Grafana datasource provisioning configuration for automated Prometheus integration
+# with the Node.js tutorial application monitoring stack. This configuration implements
+# Grafana provisioning API v1 standards for seamless containerized deployment with
+# Docker Compose orchestration, ensuring reliable connection to Prometheus server
+# with optimized performance settings and educational monitoring clarity.
+#
+# Key Features:
+# - Automated Prometheus datasource configuration using Grafana provisioning API
+# - Docker Compose service discovery with nodejs-tutorial-monitoring network connectivity  
+# - High-performance caching and query optimization for educational monitoring workloads
+# - Production-ready connection management with appropriate timeout and retry settings
+# - Comprehensive metric compatibility with Node.js tutorial application monitoring stack
+# - Educational design demonstrating industry-standard monitoring infrastructure patterns
+#
+# Architecture Integration:
+# - Seamless integration with Prometheus 2.40.0 server configuration at http://prometheus:9090
+# - Docker Compose network connectivity through nodejs-tutorial-monitoring bridge network
+# - Node.js tutorial application metrics collection including HTTP performance, system resources
+# - Health check integration supporting /health, /livez, and /readyz endpoints
+# - Express.js 5.1.0 and Node.js 22.x LTS compatibility with monitoring middleware
+#
+# Performance Optimization:
+# - High-level caching with incremental querying for optimal dashboard responsiveness
+# - Query timeout and time interval settings balanced for educational and development use
+# - Connection pooling and keep-alive settings for efficient resource utilization
+# - Prometheus-specific optimization for time-series data visualization and analysis
+#
+# Educational Value:
+# - Demonstrates Grafana provisioning workflows and Infrastructure as Code principles
+# - Shows service discovery patterns in containerized monitoring environments
+# - Illustrates monitoring stack integration and operational best practices
+# - Provides foundation for advanced monitoring topics and dashboard creation
+#
+# Compatible with:
+# - Grafana 10.4.0 with provisioning API and dashboard integration
+# - Prometheus 2.40.0 with PromQL query language and time-series storage
+# - Docker Compose 3.8 orchestration with multi-service networking
+# - Node.js 22.x tutorial application with comprehensive metrics collection
+#
+# @author Node.js Tutorial Team
+# @version 1.0.0
+# @educational_focus Grafana datasource provisioning, monitoring stack integration
+
+# =============================================================================
+# GRAFANA PROVISIONING API VERSION
+# =============================================================================
+
+# Grafana provisioning API version specification for datasource configuration compatibility
+# Version 1 provides comprehensive datasource management with creation, updates, and deletion
+apiVersion: 1
+
+# =============================================================================
+# PROMETHEUS DATASOURCES CONFIGURATION
+# =============================================================================
+
+datasources:
+  # ---------------------------------------------------------------------------
+  # Primary Prometheus Datasource Configuration
+  # ---------------------------------------------------------------------------
+  
+  - name: prometheus
+    # Datasource type specification for Prometheus time-series database integration
+    type: prometheus
+    
+    # Unique identifier for datasource reference in dashboards and alerting rules
+    # Provides stable reference for programmatic datasource access and dashboard creation
+    uid: prometheus-datasource-nodejs-tutorial
+    
+    # Datasource access method configuration - proxy mode routes queries through Grafana backend
+    # Provides security benefits and centralized query management for educational monitoring
+    access: proxy
+    
+    # Prometheus server URL using Docker Compose service name for container networking
+    # Service discovery through nodejs-tutorial-monitoring network enables reliable connectivity
+    url: http://prometheus:9090
+    
+    # Basic authentication configuration - disabled for development and educational simplicity
+    # Production deployments should implement authentication and authorization mechanisms
+    basicAuth: false
+    basicAuthUser: ''
+    basicAuthPassword: ''
+    
+    # Credential handling configuration for browser-based authentication scenarios
+    # Disabled for container-to-container communication within Docker Compose network
+    withCredentials: false
+    
+    # Default datasource designation for new dashboard panels and query builder
+    # Ensures seamless dashboard creation experience for educational monitoring scenarios  
+    isDefault: true
+    
+    # Datasource version for configuration change tracking and rollback capabilities
+    # Enables operational visibility and version control integration
+    version: 1
+    
+    # Edit permissions configuration - disabled to prevent accidental modification in tutorials
+    # Maintains consistent monitoring configuration across educational environments
+    editable: false
+    
+    # Organization ID for multi-tenant Grafana instances - default organization for simplicity
+    # Educational deployments typically use single organization for reduced complexity
+    orgId: 1
+    
+    # Read-only access configuration for enhanced security and configuration stability
+    # Prevents accidental datasource modification while allowing query execution
+    readOnly: true
+    
+    # ==========================================================================
+    # PROMETHEUS-SPECIFIC CONFIGURATION
+    # ==========================================================================
+    
+    jsonData:
+      # HTTP method for Prometheus API queries - GET provides optimal compatibility
+      # with Prometheus query API and reduces server-side processing overhead
+      httpMethod: GET
+      
+      # Query execution timeout for complex PromQL queries and dashboard loading
+      # Balanced setting prevents hanging queries while allowing sufficient execution time
+      queryTimeout: 60s
+      
+      # Minimum time interval between data points aligned with Prometheus scrape interval
+      # Matches prometheus.yml global scrape_interval of 15s for optimal data resolution
+      timeInterval: 15s
+      
+      # Custom query parameters for enhanced Prometheus query compatibility
+      # Currently empty - can be extended for specific monitoring requirements
+      customQueryParameters: ''
+      
+      # Metrics lookup optimization - enabled for better dashboard performance
+      # Provides metric name autocompletion and validation in query builder
+      disableMetricsLookup: false
+      
+      # Prometheus server type identification for feature compatibility
+      # Ensures proper query syntax and feature availability detection
+      prometheusType: Prometheus
+      
+      # Prometheus server version requirement for feature compatibility validation
+      # Aligns with Prometheus 2.40.0 deployment in monitoring stack configuration
+      prometheusVersion: '>=2.40.0'
+      
+      # Cache level configuration for query performance optimization
+      # High caching improves dashboard responsiveness for educational monitoring workloads
+      cacheLevel: High
+      
+      # Incremental querying optimization for time-series visualization performance
+      # Reduces data transfer and improves dashboard loading times for large time ranges
+      incrementalQuerying: true
+      
+      # Recording rules configuration - disabled for educational simplicity
+      # Can be enabled for advanced monitoring scenarios requiring pre-aggregation
+      disableRecordingRules: false
+      
+      # Exemplar trace integration configuration for distributed tracing correlation
+      # Currently empty - can be configured for advanced observability scenarios
+      exemplarTraceIdDestinations: []
+      
+      # Query result caching configuration for improved performance
+      # Enables intelligent caching of query results based on time range and staleness
+      enableCache: true
+      
+      # Maximum query parallelization for complex dashboard queries
+      # Balances performance improvement with resource utilization
+      maxConcurrentShardQueries: 16
+      
+      # Default query step size for time-series data resolution
+      # Automatically calculated based on query time range for optimal visualization
+      defaultResolution: auto
+      
+      # Query hints configuration for PromQL query optimization suggestions
+      # Helps users write more efficient queries for better dashboard performance
+      queryHints: true
+    
+    # ==========================================================================
+    # SECURE CONFIGURATION DATA
+    # ==========================================================================
+    
+    # Secure JSON data for sensitive configuration like API keys and passwords
+    # Currently empty as basic authentication is disabled for educational simplicity
+    # Production deployments should utilize secure storage for authentication credentials
+    secureJsonData: {}
+    
+    # ==========================================================================
+    # DATASOURCE DELETION CONFIGURATION
+    # ==========================================================================
+    
+    # Datasource deletion specifications for cleanup and replacement scenarios
+    # Currently empty - no datasources marked for deletion in this configuration
+    deletions: []
+
+# =============================================================================
+# DATASOURCE DELETION POLICY
+# =============================================================================
+
+# Global datasource deletion policy for provisioning lifecycle management  
+# Currently empty - no datasources configured for automatic removal
+# Can be used for cleanup of obsolete datasources during configuration updates
+delete_datasources: []
+
+# =============================================================================
+# OPERATIONAL CONFIGURATION NOTES
+# =============================================================================
+#
+# DOCKER COMPOSE INTEGRATION:
+# - This configuration file is mounted as volume: ./prometheus.yml:/etc/grafana/provisioning/datasources/prometheus.yml:ro
+# - Grafana service must be connected to nodejs-tutorial-monitoring network for Prometheus connectivity
+# - Service discovery resolves prometheus:9090 to Prometheus container IP within Docker network
+# - Read-only mount prevents accidental configuration modification during container operation
+#
+# NETWORK CONNECTIVITY:
+# - Grafana container connects to Prometheus through nodejs-tutorial-monitoring bridge network
+# - Network configuration provides DNS resolution for service names (prometheus -> container IP)
+# - Docker Compose ensures containers can communicate securely within isolated network
+# - Health checks validate network connectivity and service availability
+#
+# PERFORMANCE CONSIDERATIONS:
+# - Query timeout settings prevent dashboard loading issues with complex PromQL queries
+# - Caching configuration optimizes repeated query performance for educational dashboards
+# - Time interval alignment with Prometheus scrape interval ensures optimal data resolution
+# - Incremental querying reduces data transfer for large time range visualizations
+#
+# SECURITY CONFIGURATION:
+# - Basic authentication disabled for development and educational environments
+# - Read-only datasource configuration prevents accidental modification
+# - Proxy access mode provides security boundary and centralized query management
+# - Container network isolation ensures secure inter-service communication
+#
+# EDUCATIONAL INTEGRATION:
+# - Default datasource configuration enables immediate dashboard creation
+# - Metric compatibility with Node.js tutorial application monitoring endpoints
+# - PromQL query language support for time-series data analysis and visualization
+# - Foundation for learning monitoring concepts, dashboard design, and alerting
+#
+# TROUBLESHOOTING:
+# - Verify Docker Compose network connectivity: docker-compose exec grafana curl -f http://prometheus:9090/api/v1/query?query=up
+# - Check Prometheus targets: http://localhost:9090/targets for scrape configuration validation
+# - Validate Grafana datasource: http://localhost:3000/api/datasources for provisioned datasource status
+# - Monitor container logs: docker-compose logs prometheus grafana for connectivity issues
+#
+# MONITORING STACK COMPATIBILITY:
+# - Node.js tutorial application metrics: nodejs_tutorial_http_requests_total, nodejs_tutorial_http_request_duration_seconds
+# - System resource metrics: nodejs_tutorial_memory_usage_bytes, nodejs_tutorial_cpu_usage_percent
+# - Health check metrics: nodejs_tutorial_health_status, up{job="nodejs-tutorial-app"}
+# - Prometheus self-monitoring: prometheus_config_last_reload_successful, prometheus_tsdb_head_series
+#
+# =============================================================================
