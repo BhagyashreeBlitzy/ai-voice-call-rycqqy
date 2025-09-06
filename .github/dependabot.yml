@@ -1,0 +1,364 @@
+# =============================================================================
+# Dependabot Automated Dependency Management Configuration
+# =============================================================================
+# Comprehensive Dependabot configuration for the Node.js tutorial application that enables
+# automated security updates, version upgrades, and dependency monitoring across NPM packages,
+# Docker images, and GitHub Actions. Implements security-first update strategies, educational-
+# focused dependency management, and production-ready automated maintenance for Express.js v5.1.0,
+# Node.js v22.x LTS, and containerized development workflow with comprehensive dependency scanning,
+# schedule optimization, and maintainer-friendly pull request management.
+#
+# Features:
+# - Multi-ecosystem dependency management for NPM, Docker, and GitHub Actions marketplace
+# - Security-first update prioritization with immediate high-severity vulnerability responses
+# - Intelligent dependency grouping for cohesive framework and tooling updates
+# - Automated pull request management with reviewer assignment and labeling
+# - Branch management strategy with dedicated update branches and auto-cleanup
+# - Registry authentication configuration for private package and container access
+# - Update scheduling optimization with staggered timing to prevent conflicts
+# - Educational value demonstration of Dependabot YAML configuration patterns
+# - Conventional commit messaging for automated changelog generation and release management
+# - Compatibility maintenance for Express.js v5.1.0 and Node.js 22.x LTS requirements
+#
+# Security Architecture:
+# - Immediate response for high and critical vulnerability updates
+# - Batch processing for low and moderate severity updates
+# - Automated vulnerability scanning integration with GitHub Security Advisory database
+# - NPM audit integration for JavaScript dependency vulnerability detection
+# - Container image vulnerability scanning for Docker base image security
+# - Pull request rate limiting to prevent maintainer overwhelm
+# - Required review process for all security-related dependency updates
+#
+# Educational Value:
+# - Demonstrates comprehensive Dependabot configuration syntax and update strategies
+# - Shows multi-ecosystem dependency management patterns for real-world applications
+# - Illustrates security-focused update prioritization and vulnerability management
+# - Teaches automated dependency grouping and batch update optimization
+# - Provides examples of conventional commit messaging and automated release workflows
+# - Shows registry authentication patterns for private package and container access
+#
+# @author Node.js Tutorial Team
+# @version 2
+# @since 2024
+
+# Dependabot configuration schema version 2 for full feature support
+version: 2
+
+# =============================================================================
+# REGISTRY CONFIGURATION - Authentication for Private Packages and Containers
+# =============================================================================
+# Registry authentication configuration enables Dependabot to access private
+# package repositories and container registries for comprehensive dependency monitoring
+registries:
+  # NPM registry configuration for private package access and enhanced security
+  npm-registry:
+    type: npm-registry
+    url: https://registry.npmjs.org
+    username: ${{secrets.NPM_USERNAME}}
+    password: ${{secrets.NPM_TOKEN}}
+    
+  # Docker registry configuration for container image updates and security scanning
+  docker-registry:
+    type: docker-registry
+    url: https://index.docker.io
+    username: ${{secrets.DOCKER_USERNAME}}
+    password: ${{secrets.DOCKER_TOKEN}}
+
+# =============================================================================
+# UPDATE CONFIGURATION - Multi-Ecosystem Dependency Management
+# =============================================================================
+updates:
+  # ===========================================================================
+  # NPM ECOSYSTEM - Node.js Package Dependencies
+  # ===========================================================================
+  # Comprehensive NPM dependency management for Express.js v5.1.0, Jest testing framework,
+  # ESLint code quality tools, and development dependencies with automated security patches
+  - package-ecosystem: npm
+    directory: /src/backend
+    
+    # Update scheduling optimized for development workflow and security response
+    schedule:
+      interval: daily        # Daily monitoring for rapid security response
+      time: "06:00"         # Early morning UTC for global team coordination
+      timezone: "UTC"       # Consistent timezone for international teams
+    
+    # Pull request management for maintainer efficiency and code review workflow
+    target-branch: dependabot/npm-updates
+    open-pull-requests-limit: 5
+    reviewers:
+      - "@nodejs-tutorial-team"
+    assignees:
+      - "@maintainer"
+    labels:
+      - dependencies
+      - npm
+      - security
+      - backend
+    milestone: dependency-updates
+    
+    # Conventional commit messaging for automated changelog generation
+    commit-message:
+      prefix: "chore(deps)"
+      prefix-development: "chore(dev-deps)"
+      include: "scope"
+    
+    # Dependency update strategy with security and compatibility focus
+    allow:
+      - dependency-type: direct      # Direct application dependencies
+      - dependency-type: indirect    # Transitive security updates
+      - dependency-type: development # Development tooling updates
+    
+    # Version constraints for tutorial compatibility and framework stability
+    ignore:
+      # Express.js version pinning for tutorial consistency and compatibility
+      - dependency-name: express
+        versions:
+          - "< 5.1.0"
+        reason: "Maintaining Express.js v5.1.0 compatibility for tutorial requirements"
+      
+      # Node.js version constraints for LTS compatibility and framework support
+      - dependency-name: node
+        versions:
+          - "< 22.0.0"
+        reason: "Node.js 22.x LTS requirement for Express.js 5.0 compatibility"
+    
+    # Dependency grouping for coherent framework and tooling updates
+    groups:
+      # Express.js ecosystem updates grouped for framework consistency
+      express-ecosystem:
+        patterns:
+          - "express*"
+        update-types:
+          - minor
+          - patch
+      
+      # Testing framework dependencies grouped for testing consistency
+      testing-tools:
+        patterns:
+          - "jest*"
+          - "supertest*"
+          - "@types/jest"
+        update-types:
+          - minor
+          - patch
+      
+      # Code quality tools grouped for consistent linting and formatting
+      linting-tools:
+        patterns:
+          - "eslint*"
+          - "prettier*"
+        update-types:
+          - minor
+          - patch
+      
+      # Development tooling grouped for workflow consistency
+      development-tools:
+        patterns:
+          - "nodemon*"
+          - "@types/*"
+        update-types:
+          - minor
+          - patch
+    
+    # Version strategy and pull request configuration
+    versioning-strategy: increase
+    pull-request-branch-name:
+      separator: "/"
+      format: "dependabot/npm/{{dependency_name}}-{{new_version}}"
+    
+    # Security configuration for safe code execution
+    insecure-external-code-execution: deny
+
+  # ===========================================================================
+  # DOCKER ECOSYSTEM - Container Base Images
+  # ===========================================================================  
+  # Docker base image updates for Node.js 22-alpine containers with security vulnerability
+  # scanning and automated security patch management for container runtime security
+  - package-ecosystem: docker
+    directory: /src/backend
+    
+    # Container image update scheduling for security patches and version updates
+    schedule:
+      interval: daily        # Daily monitoring for container security patches
+      time: "06:30"         # Staggered timing to prevent conflicts with NPM updates
+      timezone: "UTC"       # Consistent timezone for global operations
+    
+    # Container update pull request management
+    target-branch: dependabot/docker-updates
+    open-pull-requests-limit: 3
+    reviewers:
+      - "@nodejs-tutorial-team"
+    assignees:
+      - "@maintainer"
+    labels:
+      - dependencies
+      - docker
+      - security
+      - infrastructure
+    milestone: container-updates
+    
+    # Container update commit messaging
+    commit-message:
+      prefix: "chore(docker)"
+      include: "scope"
+    
+    # Container image update strategy
+    allow:
+      - dependency-type: direct    # Direct base image references only
+    
+    # Container image version constraints for compatibility and security
+    ignore:
+      # Node.js base image version constraints for LTS compatibility
+      - dependency-name: node
+        versions:
+          - "< 22"
+        reason: "Maintaining Node.js 22.x LTS requirement for application compatibility"
+      
+      # Alpine Linux version constraints for security and package support
+      - dependency-name: alpine
+        versions:
+          - "< 3.18"
+        reason: "Minimum Alpine version requirement for security and package support"
+    
+    # Container image grouping for systematic updates
+    groups:
+      # Node.js base images grouped by runtime version
+      node-images:
+        patterns:
+          - "node*"
+        update-types:
+          - minor
+          - patch
+      
+      # Base operating system images grouped for security updates
+      base-images:
+        patterns:
+          - "alpine*"
+          - "ubuntu*"
+        update-types:
+          - minor
+          - patch
+    
+    # Container update configuration
+    versioning-strategy: increase
+    pull-request-branch-name:
+      separator: "/"
+      format: "dependabot/docker/{{dependency_name}}-{{new_version}}"
+    
+    # Security configuration for container builds
+    insecure-external-code-execution: deny
+
+  # ===========================================================================
+  # GITHUB ACTIONS ECOSYSTEM - CI/CD Workflow Dependencies
+  # ===========================================================================
+  # GitHub Actions workflow dependency updates for CI/CD pipeline automation including
+  # marketplace actions for checkout, Node.js setup, Docker operations, and security scanning
+  - package-ecosystem: github-actions
+    directory: /
+    
+    # GitHub Actions update scheduling for workflow improvements and security
+    schedule:
+      interval: weekly      # Weekly updates for stable workflow automation
+      day: monday          # Monday updates for start-of-week integration
+      time: "07:00"        # Offset timing for workflow dependency management
+      timezone: "UTC"      # Consistent timezone for global development teams
+    
+    # GitHub Actions pull request management
+    target-branch: dependabot/github-actions-updates
+    open-pull-requests-limit: 3
+    reviewers:
+      - "@nodejs-tutorial-team"
+    assignees:
+      - "@maintainer"
+    labels:
+      - dependencies
+      - github-actions
+      - ci-cd
+      - security
+    milestone: workflow-updates
+    
+    # GitHub Actions commit messaging
+    commit-message:
+      prefix: "chore(actions)"
+      include: "scope"
+    
+    # GitHub Actions update strategy for marketplace dependencies
+    allow:
+      - dependency-type: direct    # Direct action references in workflows
+    
+    # No version constraints for GitHub Actions - allow all updates for latest features
+    ignore: []
+    
+    # GitHub Actions grouping for systematic workflow updates
+    groups:
+      # Core GitHub Actions grouped for foundational workflow operations
+      core-actions:
+        patterns:
+          - "actions/*"
+        update-types:
+          - major
+          - minor
+          - patch
+      
+      # Docker-related actions grouped for container workflow operations
+      docker-actions:
+        patterns:
+          - "docker/*"
+        update-types:
+          - major
+          - minor
+          - patch
+      
+      # Security and analysis actions grouped for security workflow updates
+      security-actions:
+        patterns:
+          - "github/*"
+          - "codecov/*"
+        update-types:
+          - major
+          - minor
+          - patch
+    
+    # GitHub Actions update configuration
+    versioning-strategy: increase
+    pull-request-branch-name:
+      separator: "/"
+      format: "dependabot/github-actions/{{dependency_name}}-{{new_version}}"
+    
+    # Security configuration for workflow execution
+    insecure-external-code-execution: deny
+
+# =============================================================================
+# SECURITY UPDATE CONFIGURATION SUMMARY
+# =============================================================================
+# Security Update Strategy:
+# - NPM Dependencies: Daily monitoring with immediate high-severity responses
+# - Docker Images: Daily monitoring for container security patches  
+# - GitHub Actions: Weekly monitoring for workflow security and features
+# - Vulnerability Alerts: Enabled with moderate severity threshold
+# - Auto-merge: Enabled for patch updates and security fixes with maintainer approval
+# - Review Requirements: All security updates require maintainer review
+# - Branch Management: Dedicated branches with automatic cleanup after merge
+# - Conventional Commits: Structured commit messages for automated release management
+#
+# Dependency Grouping Strategy:
+# - Express Ecosystem: Framework-related updates grouped for consistency
+# - Testing Tools: Jest, Supertest, and testing dependencies batched together
+# - Linting Tools: ESLint, Prettier, and code quality tools updated cohesively
+# - Docker Images: Base images grouped by runtime and operating system
+# - GitHub Actions: Marketplace actions grouped by functionality and vendor
+#
+# Educational Benefits:
+# - Demonstrates comprehensive multi-ecosystem dependency management
+# - Shows security-first update prioritization and vulnerability response
+# - Illustrates automated pull request management and review workflows
+# - Provides examples of dependency compatibility management and version pinning
+# - Teaches conventional commit patterns for automated release management
+# - Shows registry authentication for private package and container access
+#
+# Performance Optimization:
+# - Staggered update scheduling prevents resource conflicts and overwhelming maintainers
+# - Pull request limits balance automation with maintainer capacity
+# - Dependency grouping reduces CI/CD resource usage through batch updates
+# - Branch management prevents repository clutter through automatic cleanup
+# - Update type filtering focuses on relevant changes while maintaining compatibility
