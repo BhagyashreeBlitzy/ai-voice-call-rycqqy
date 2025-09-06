@@ -1,0 +1,621 @@
+# =============================================================================
+# Node.js Tutorial CI/CD Pipeline - GitHub Actions Workflow Configuration
+# =============================================================================
+# Comprehensive CI/CD workflow for the Node.js tutorial application implementing automated
+# build, test, security scanning, Docker containerization, and deployment pipeline with
+# Express.js 5.1.0 compatibility, Jest testing framework with 95% coverage thresholds,
+# ESLint code quality enforcement, npm security auditing, and multi-platform Docker image
+# building with vulnerability scanning for educational demonstration of enterprise CI/CD patterns.
+#
+# Pipeline Features:
+# - Multi-stage workflow orchestration with parallel job execution and dependency management
+# - Node.js version matrix testing (18.x, 20.x, 22.x) with multiple test suite strategies
+# - Comprehensive security scanning including npm audit, ESLint security rules, and Docker image scanning
+# - Multi-stage Docker builds with production optimization and container registry integration
+# - Quality gate evaluation with automated deployment decision logic and audit trail generation
+# - Educational CI/CD patterns with detailed logging, reporting, and failure handling
+# - Performance optimization with intelligent caching, parallel execution, and resource constraints
+#
+# Educational Value:
+# - Demonstrates GitHub Actions workflow syntax and job orchestration patterns
+# - Shows CI/CD pipeline design with quality gates and security integration
+# - Illustrates Docker containerization in continuous integration environments
+# - Teaches automated testing strategies and coverage reporting workflows
+# - Provides artifact management and deployment approval processes
+#
+# @author Node.js Tutorial Team
+# @version 1.0.0
+# @since 2024
+
+name: Node.js Tutorial CI/CD Pipeline
+
+# =============================================================================
+# WORKFLOW TRIGGER CONFIGURATION
+# =============================================================================
+on:
+  # Trigger on push to main development branches and backend code changes
+  push:
+    branches:
+      - main
+      - develop
+      - 'feature/*'
+    paths:
+      - 'src/backend/**'
+      - '.github/workflows/**'
+      - 'package*.json'
+      - 'Dockerfile'
+      - '!**.md'
+      - '!docs/**'
+
+  # Trigger on pull requests to main branches with backend modifications
+  pull_request:
+    branches:
+      - main
+      - develop
+    paths:
+      - 'src/backend/**'
+      - '.github/workflows/**'
+      - 'package*.json'
+      - 'Dockerfile'
+      - '!**.md'
+      - '!docs/**'
+
+  # Weekly scheduled execution for dependency updates and security scanning
+  schedule:
+    - cron: '0 6 * * 1'  # Every Monday at 6:00 AM UTC
+
+  # Manual workflow dispatch for on-demand builds and deployments
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment for deployment'
+        required: false
+        default: 'development'
+        type: choice
+        options:
+          - development
+          - staging
+          - production
+      skip_tests:
+        description: 'Skip test execution (emergency deployments only)'
+        required: false
+        default: false
+        type: boolean
+      docker_build:
+        description: 'Force Docker image build'
+        required: false
+        default: false
+        type: boolean
+
+# =============================================================================
+# WORKFLOW CONCURRENCY AND PERMISSIONS
+# =============================================================================
+# Prevent concurrent workflow runs on the same branch to save resources and avoid conflicts
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Minimal required permissions for package registry, security scanning, and artifact access
+permissions:
+  contents: read          # Repository content access for checkout and file operations
+  packages: write         # Container registry publishing for Docker images
+  security-events: write  # Security scanning result publishing
+  actions: read          # Action execution and artifact management
+  pull-requests: write   # Pull request commenting for quality gate results
+
+# =============================================================================
+# GLOBAL ENVIRONMENT VARIABLES
+# =============================================================================
+env:
+  NODE_ENV: test
+  CI: true
+  NPM_CONFIG_PROGRESS: false
+  NPM_CONFIG_LOGLEVEL: error
+  DOCKER_BUILDKIT: 1
+  COMPOSE_DOCKER_CLI_BUILD: 1
+  COVERAGE_THRESHOLD: 95
+  DOCKER_REGISTRY: ghcr.io
+  IMAGE_NAME: nodejs-hello-tutorial
+
+# =============================================================================
+# JOB DEFINITIONS - MULTI-STAGE PIPELINE EXECUTION
+# =============================================================================
+jobs:
+  # ===========================================================================
+  # SETUP JOB - Repository Validation and Environment Preparation
+  # ===========================================================================
+  setup:
+    name: Setup and Validation
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    
+    outputs:
+      cache-hit: ${{ steps.cache.outputs.cache-hit }}
+      node-version: ${{ steps.setup-node.outputs.node-version }}
+      repository-valid: ${{ steps.validate.outputs.valid }}
+      
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          # Checkout complete repository history for proper versioning and change analysis
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Validate Repository Structure
+        id: validate
+        run: |
+          echo "Validating repository structure for Node.js tutorial application..."
+          
+          # Check required files exist
+          if [[ ! -f "src/backend/package.json" ]]; then
+            echo "❌ Missing src/backend/package.json"
+            exit 1
+          fi
+          
+          if [[ ! -f "src/backend/src/server.js" ]] && [[ ! -f "src/backend/src/app.js" ]]; then
+            echo "❌ Missing main application file"
+            exit 1
+          fi
+          
+          if [[ ! -f "src/backend/Dockerfile" ]]; then
+            echo "❌ Missing Dockerfile"
+            exit 1
+          fi
+          
+          echo "✅ Repository structure validation passed"
+          echo "valid=true" >> $GITHUB_OUTPUT
+
+      - name: Setup Node.js
+        id: setup-node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+          cache: 'npm'
+          cache-dependency-path: 'src/backend/package-lock.json'
+
+      - name: Cache Dependencies
+        id: cache
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.npm
+            src/backend/node_modules
+            src/backend/.jest-cache
+          key: node-${{ runner.os }}-${{ hashFiles('src/backend/package-lock.json') }}
+          restore-keys: |
+            node-${{ runner.os }}-
+
+  # ===========================================================================
+  # BUILD AND TEST JOB - Multi-Version Testing Matrix
+  # ===========================================================================
+  build-and-test:
+    name: Build and Test Matrix
+    runs-on: ubuntu-22.04
+    needs: [setup]
+    timeout-minutes: 30
+    
+    strategy:
+      matrix:
+        node-version: ['18.x', '20.x', '22.x']
+        test-suite: ['unit', 'integration', 'full']
+      fail-fast: false
+      
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+          cache-dependency-path: 'src/backend/package-lock.json'
+
+      - name: Install Dependencies
+        working-directory: src/backend
+        run: |
+          echo "Installing dependencies with npm ci for deterministic builds..."
+          npm ci --no-audit --no-fund --prefer-offline
+          echo "✅ Dependencies installed successfully"
+
+      - name: Run ESLint Code Quality Check
+        working-directory: src/backend
+        run: |
+          echo "Running ESLint with zero warnings tolerance..."
+          npm run lint -- --format=compact --max-warnings=0
+          echo "✅ ESLint code quality check passed"
+
+      - name: Run Prettier Format Check
+        working-directory: src/backend
+        run: |
+          echo "Validating code formatting consistency..."
+          npm run format:check
+          echo "✅ Code formatting validation passed"
+
+      - name: Run Test Suite - ${{ matrix.test-suite }}
+        working-directory: src/backend
+        env:
+          NODE_ENV: test
+          CI: true
+        run: |
+          echo "Executing ${{ matrix.test-suite }} test suite..."
+          case "${{ matrix.test-suite }}" in
+            "unit")
+              npm run test -- --testPathPattern="unit" --verbose
+              ;;
+            "integration") 
+              npm run test -- --testPathPattern="integration" --verbose
+              ;;
+            "full")
+              npm run test:ci
+              ;;
+          esac
+          echo "✅ ${{ matrix.test-suite }} test suite completed successfully"
+
+      - name: Generate Coverage Report
+        working-directory: src/backend
+        if: matrix.test-suite == 'full'
+        run: |
+          echo "Generating comprehensive code coverage report..."
+          npm run test:coverage
+          echo "✅ Coverage report generated"
+
+      - name: Upload Coverage to Codecov
+        uses: codecov/codecov-action@v3
+        if: matrix.test-suite == 'full' && matrix.node-version == '22.x'
+        with:
+          file: src/backend/coverage/lcov.info
+          flags: unittests
+          name: codecov-umbrella
+          fail_ci_if_error: false
+
+      - name: Upload Test Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-${{ matrix.node-version }}-${{ matrix.test-suite }}
+          path: |
+            src/backend/coverage/
+            src/backend/test-results.xml
+          retention-days: 7
+
+  # ===========================================================================
+  # SECURITY SCAN JOB - Comprehensive Vulnerability Analysis
+  # ===========================================================================
+  security-scan:
+    name: Security and Vulnerability Scanning
+    runs-on: ubuntu-22.04
+    needs: [setup]
+    timeout-minutes: 20
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+          cache: 'npm'
+          cache-dependency-path: 'src/backend/package-lock.json'
+
+      - name: Install Dependencies
+        working-directory: src/backend
+        run: |
+          echo "Installing dependencies for security scanning..."
+          npm ci --no-audit --no-fund
+          echo "✅ Dependencies installed for security analysis"
+
+      - name: Run npm audit
+        working-directory: src/backend
+        continue-on-error: true
+        run: |
+          echo "Scanning npm dependencies for security vulnerabilities..."
+          npm audit --audit-level moderate --production | tee npm-audit-report.txt
+          echo "Security scan completed - check report for issues"
+
+      - name: Generate npm audit fix report
+        working-directory: src/backend
+        continue-on-error: true
+        run: |
+          echo "Generating automated fix recommendations..."
+          npm audit fix --dry-run --json > audit-fix-report.json
+          echo "Fix recommendations generated"
+
+      - name: Security Linting with ESLint Security Plugin
+        working-directory: src/backend
+        continue-on-error: true
+        run: |
+          echo "Running ESLint security-focused analysis..."
+          npx eslint src/ --ext .js --format json --output-file eslint-security-report.json || true
+          echo "ESLint security analysis completed"
+
+      - name: Dependency License Check
+        working-directory: src/backend
+        continue-on-error: true
+        run: |
+          echo "Verifying dependency license compatibility..."
+          npx license-checker --production --json --out license-report.json
+          echo "License compliance check completed"
+
+      - name: Upload Security Reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: security-reports
+          path: |
+            src/backend/npm-audit-report.txt
+            src/backend/audit-fix-report.json
+            src/backend/eslint-security-report.json
+            src/backend/license-report.json
+          retention-days: 30
+
+  # ===========================================================================
+  # DOCKER BUILD JOB - Multi-Stage Container Building
+  # ===========================================================================
+  docker-build:
+    name: Docker Build and Scan
+    runs-on: ubuntu-22.04
+    needs: [setup, build-and-test]
+    timeout-minutes: 30
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || inputs.docker_build == true
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          version: latest
+          driver-opts: network=host
+
+      - name: Login to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.DOCKER_REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract Metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.DOCKER_REGISTRY }}/${{ github.repository }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build Development Image
+        uses: docker/build-push-action@v5
+        with:
+          context: src/backend
+          file: src/backend/Dockerfile
+          target: build
+          push: false
+          tags: ${{ env.IMAGE_NAME }}:dev
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64
+
+      - name: Test Docker Image
+        run: |
+          echo "Testing Docker image functionality..."
+          docker run --rm -d --name test-container -p 3000:3000 ${{ env.IMAGE_NAME }}:dev
+          sleep 10
+          
+          echo "Testing health endpoint..."
+          curl -f http://localhost:3000/health || exit 1
+          
+          echo "Testing hello endpoint..."
+          response=$(curl -f http://localhost:3000/hello)
+          if [[ "$response" != *"Hello world"* ]]; then
+            echo "❌ Hello endpoint test failed"
+            exit 1
+          fi
+          
+          docker stop test-container
+          echo "✅ Docker image functionality tests passed"
+
+      - name: Build Production Image
+        uses: docker/build-push-action@v5
+        with:
+          context: src/backend
+          file: src/backend/Dockerfile
+          target: production
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64,linux/arm64
+          build-args: |
+            BUILD_DATE=${{ steps.meta.outputs.created }}
+            VCS_REF=${{ github.sha }}
+
+      - name: Run Docker Security Scan
+        uses: docker/scout-action@v1
+        if: github.event_name == 'pull_request'
+        continue-on-error: true
+        with:
+          command: cves
+          image: ${{ env.IMAGE_NAME }}:dev
+          format: json
+          output: docker-scout-report.json
+
+      - name: Upload Docker Security Report
+        uses: actions/upload-artifact@v4
+        if: github.event_name == 'pull_request'
+        with:
+          name: docker-security-report
+          path: docker-scout-report.json
+          retention-days: 30
+
+  # ===========================================================================
+  # QUALITY GATE JOB - Final Quality Evaluation and Deployment Decision
+  # ===========================================================================
+  quality-gate:
+    name: Quality Gate and Deployment Decision
+    runs-on: ubuntu-22.04
+    needs: [build-and-test, security-scan, docker-build]
+    if: always()
+    timeout-minutes: 10
+    
+    outputs:
+      quality-gate-passed: ${{ steps.quality-check.outputs.QUALITY_GATE_PASSED }}
+      deployment-approved: ${{ steps.quality-check.outputs.QUALITY_GATE_PASSED == 'true' }}
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Download Test Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: test-results-*
+          path: artifacts/test-results
+          merge-multiple: true
+
+      - name: Download Security Reports
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: security-reports
+          path: artifacts/security-reports
+
+      - name: Evaluate Quality Metrics
+        id: quality-check
+        run: |
+          echo "🔍 Evaluating quality gate criteria..."
+          
+          # Initialize quality gate status
+          QUALITY_GATE_PASSED="true"
+          ISSUES=()
+          
+          # Check build and test job results
+          if [[ "${{ needs.build-and-test.result }}" != "success" ]]; then
+            echo "❌ Build and test job failed"
+            ISSUES+=("Build and test failures detected")
+            QUALITY_GATE_PASSED="false"
+          else
+            echo "✅ Build and test job passed"
+          fi
+          
+          # Check security scan results (warnings allowed)
+          if [[ "${{ needs.security-scan.result }}" == "failure" ]]; then
+            echo "⚠️  Security scan has critical issues"
+            ISSUES+=("Security scan critical failures")
+            # Don't fail quality gate for security warnings, but log them
+          elif [[ "${{ needs.security-scan.result }}" == "success" ]]; then
+            echo "✅ Security scan completed successfully"
+          fi
+          
+          # Check Docker build for push events
+          if [[ "${{ github.event_name }}" == "push" ]] && [[ "${{ needs.docker-build.result }}" != "success" ]]; then
+            echo "❌ Docker build failed for push event"
+            ISSUES+=("Docker build failure on push event")
+            QUALITY_GATE_PASSED="false"
+          fi
+          
+          # Skip Docker check if not running
+          if [[ "${{ needs.docker-build.result }}" == "skipped" ]]; then
+            echo "ℹ️  Docker build was skipped"
+          elif [[ "${{ needs.docker-build.result }}" == "success" ]]; then
+            echo "✅ Docker build completed successfully"
+          fi
+          
+          # Final quality gate decision
+          if [[ "$QUALITY_GATE_PASSED" == "true" ]]; then
+            echo "🎉 Quality gate criteria met - deployment approved"
+          else
+            echo "🚫 Quality gate failed - deployment blocked"
+            echo "Issues found:"
+            printf '%s\n' "${ISSUES[@]}"
+          fi
+          
+          echo "QUALITY_GATE_PASSED=$QUALITY_GATE_PASSED" >> $GITHUB_OUTPUT
+
+      - name: Generate Quality Report
+        run: |
+          echo "📊 Generating comprehensive quality report..."
+          cat > quality-report.md << EOF
+          # 📋 Quality Gate Report
+          
+          **Build Date:** $(date -u +'%Y-%m-%d %H:%M:%S UTC')  
+          **Git Commit:** \`${{ github.sha }}\`  
+          **Branch:** \`${{ github.ref_name }}\`  
+          **Workflow:** \`${{ github.workflow }}\`  
+          **Event:** \`${{ github.event_name }}\`
+          
+          ## 🔧 Job Results
+          - **Setup:** ${{ needs.setup.result }} ✓
+          - **Build and Test:** ${{ needs.build-and-test.result }} ${{ needs.build-and-test.result == 'success' && '✅' || '❌' }}
+          - **Security Scan:** ${{ needs.security-scan.result }} ${{ needs.security-scan.result == 'success' && '✅' || needs.security-scan.result == 'failure' && '❌' || '⚠️' }}
+          - **Docker Build:** ${{ needs.docker-build.result }} ${{ needs.docker-build.result == 'success' && '✅' || needs.docker-build.result == 'skipped' && 'ℹ️' || '❌' }}
+          
+          ## 📈 Quality Metrics
+          - **Code Coverage:** Check artifacts for detailed coverage reports
+          - **Security Issues:** Review security-reports artifacts if available
+          - **Container Security:** Review docker-security-report if available
+          - **Test Results:** Multiple Node.js versions tested (18.x, 20.x, 22.x)
+          
+          ## 🚀 Deployment Decision
+          **Status:** ${{ steps.quality-check.outputs.QUALITY_GATE_PASSED == 'true' && '✅ APPROVED FOR DEPLOYMENT' || '❌ DEPLOYMENT BLOCKED' }}
+          
+          ${{ steps.quality-check.outputs.QUALITY_GATE_PASSED == 'true' && 
+             'All quality criteria have been met. The application is ready for deployment to the next environment.' || 
+             'Quality gate failed. Please review the issues above and address them before proceeding with deployment.' }}
+          
+          ---
+          *Generated by Node.js Tutorial CI/CD Pipeline*
+          EOF
+          
+          echo "✅ Quality report generated successfully"
+
+      - name: Upload Quality Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: quality-gate-report
+          path: quality-report.md
+          retention-days: 90
+
+      - name: Comment on Pull Request
+        uses: actions/github-script@v7
+        if: github.event_name == 'pull_request'
+        with:
+          script: |
+            const fs = require('fs');
+            try {
+              const qualityReport = fs.readFileSync('quality-report.md', 'utf8');
+              
+              await github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: qualityReport
+              });
+              
+              console.log('✅ Quality gate results posted to pull request');
+            } catch (error) {
+              console.error('❌ Failed to post comment:', error);
+            }
+
+      - name: Summary
+        run: |
+          echo "## 📊 CI/CD Pipeline Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Job | Status | Result |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----|--------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Setup | ${{ needs.setup.result }} | ${{ needs.setup.result == 'success' && '✅' || '❌' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Build and Test | ${{ needs.build-and-test.result }} | ${{ needs.build-and-test.result == 'success' && '✅' || '❌' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Security Scan | ${{ needs.security-scan.result }} | ${{ needs.security-scan.result == 'success' && '✅' || needs.security-scan.result == 'failure' && '❌' || '⚠️' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Docker Build | ${{ needs.docker-build.result }} | ${{ needs.docker-build.result == 'success' && '✅' || needs.docker-build.result == 'skipped' && 'ℹ️' || '❌' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Quality Gate | ${{ steps.quality-check.outputs.QUALITY_GATE_PASSED == 'true' && 'PASSED' || 'FAILED' }} | ${{ steps.quality-check.outputs.QUALITY_GATE_PASSED == 'true' && '✅' || '❌' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Final Result:** ${{ steps.quality-check.outputs.QUALITY_GATE_PASSED == 'true' && '🎉 DEPLOYMENT APPROVED' || '🚫 DEPLOYMENT BLOCKED' }}" >> $GITHUB_STEP_SUMMARY
