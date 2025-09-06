@@ -1,0 +1,310 @@
+# =============================================================================
+# Node.js Tutorial Application - Docker Build Context Optimization
+# =============================================================================
+# Docker build context optimization configuration that excludes development files,
+# test artifacts, logs, documentation, and other unnecessary content while
+# maintaining production-ready deployment efficiency and security.
+# Aligns with .gitignore patterns while optimizing specifically for container
+# build context to minimize attack surface and container image size.
+
+# =============================================================================
+# VERSION CONTROL AND GIT
+# =============================================================================
+# Exclude Git version control files and GitHub workflow configurations
+# Version control history and CI/CD configurations are not needed in production
+# containers and can expose sensitive workflow information
+
+.git/
+.gitignore
+.gitattributes
+.github/
+.gitmodules
+.gitkeep
+
+# =============================================================================
+# NODE.JS DEPENDENCIES AND PACKAGE MANAGERS
+# =============================================================================
+# Exclude Node.js dependencies and package manager artifacts
+# node_modules will be installed during container build process, and debug logs
+# contain development-specific information not needed in production
+
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.npm/
+.yarn/
+.pnpm/
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+.yarnrc
+.npmrc
+
+# =============================================================================
+# ENVIRONMENT AND CONFIGURATION FILES
+# =============================================================================
+# Exclude environment variable files except example documentation
+# Environment files may contain secrets and should be injected at runtime,
+# not baked into container images
+
+.env*
+!.env.example
+.envrc
+config/local.js
+config/local.json
+config/local-*.js
+config/development.js
+config/test.js
+
+# =============================================================================
+# TESTING AND COVERAGE ARTIFACTS
+# =============================================================================
+# Exclude all testing files, test configuration, and coverage reports
+# Tests are not needed in production containers and excluding them reduces
+# image size and potential attack surface
+
+test/
+tests/
+__tests__/
+coverage/
+.nyc_output/
+.coverage/
+jest.config.js
+jest.config.json
+*.test.js
+*.spec.js
+test-results/
+test-reports/
+junit.xml
+lcov.info
+.jest/
+.jest-cache/
+spec/
+
+# =============================================================================
+# LOGS AND RUNTIME DATA
+# =============================================================================
+# Exclude all log files and logging directories
+# Log files contain runtime data that should not be included in container images
+# and should be handled through external logging systems
+
+logs/
+*.log
+access.log
+error.log
+application.log
+debug.log
+performance.log
+security.log
+npm-debug.log
+yarn-debug.log
+yarn-error.log
+pnpm-debug.log
+.npm/_logs/
+
+# =============================================================================
+# TEMPORARY AND CACHE FILES
+# =============================================================================
+# Exclude temporary files and cache directories
+# Temporary files and caches are transient and not needed in production
+# containers, and can significantly increase image size
+
+tmp/
+temp/
+.tmp/
+.cache/
+.parcel-cache/
+*.tmp
+*.temp
+.eslintcache
+.prettiercache
+.stylelintcache
+node_modules/.cache/
+.npm
+.node_repl_history
+.nyc_output
+.wireit/
+
+# =============================================================================
+# DEVELOPMENT TOOLS AND IDE
+# =============================================================================
+# Exclude IDE and editor configuration files
+# Development tool configurations are personal preferences and not needed
+# for application execution in containers
+
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.project
+.settings/
+.classpath
+.editorconfig
+*.sublime-project
+*.sublime-workspace
+.history/
+.ionide/
+
+# =============================================================================
+# OPERATING SYSTEM FILES
+# =============================================================================
+# Exclude operating system generated files
+# OS-specific files are not relevant to container execution and can cause
+# unexpected behavior across different platforms
+
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+Thumbs.db:encryptable
+
+# =============================================================================
+# DOCUMENTATION AND README FILES
+# =============================================================================
+# Exclude documentation files except package.json
+# Documentation is not needed for application runtime and excluding it reduces
+# container image size while maintaining essential package configuration
+
+README.md
+README.txt
+CHANGELOG.md
+CONTRIBUTING.md
+LICENSE
+LICENSE.txt
+docs/
+documentation/
+*.md
+!package.json
+
+# =============================================================================
+# DEVELOPMENT CONFIGURATION
+# =============================================================================
+# Exclude development tool configuration files
+# Development configurations are not needed in production containers and are
+# specific to development workflow
+
+.eslintrc*
+.prettierrc*
+.prettierignore
+nodemon.json
+jsconfig.json
+tsconfig.json
+.babelrc*
+webpack.config.js
+rollup.config.js
+.swcrc
+
+# =============================================================================
+# SCRIPTS AND BUILD TOOLS
+# =============================================================================
+# Exclude development and build scripts
+# Development scripts are not needed in production containers and may contain
+# sensitive build information or development-specific commands
+
+scripts/dev.sh
+scripts/test.sh
+scripts/coverage.sh
+scripts/security-scan.sh
+Makefile
+gulpfile.js
+Gruntfile.js
+.travis.yml
+.circleci/
+.gitlab-ci.yml
+
+# =============================================================================
+# DOCKER DEVELOPMENT FILES
+# =============================================================================
+# Exclude Docker development configurations
+# Development Docker configurations should not be included in production images
+# and may contain development-specific settings
+
+docker-compose.yml
+docker-compose.*.yml
+docker-compose.override.yml
+.dockerignore
+Dockerfile.dev
+Dockerfile.test
+.docker/
+
+# =============================================================================
+# SECURITY AND CERTIFICATES
+# =============================================================================
+# Exclude security certificates and private keys
+# Security files should never be included in container images for security reasons
+
+*.pem
+*.key
+*.cert
+*.crt
+*.csr
+*.pfx
+*.p12
+.certificates/
+
+# =============================================================================
+# PERFORMANCE AND MONITORING
+# =============================================================================
+# Exclude performance profiling data and monitoring artifacts
+# Profiling data is environment-specific and often contains sensitive
+# performance information
+
+*.cpuprofile
+*.heapsnapshot
+.clinic/
+profile/
+flame-graph.html
+*.trace
+
+# =============================================================================
+# BUILD AND DISTRIBUTION ARTIFACTS
+# =============================================================================
+# Exclude build outputs and distribution packages
+# Build artifacts should be generated during container build process
+
+dist/
+build/
+out/
+.next/
+.nuxt/
+*.tgz
+*.tar.gz
+*.zip
+lib-cov/
+.grunt/
+
+# =============================================================================
+# INCLUDE ESSENTIAL FILES
+# =============================================================================
+# Essential files that must be included for application functionality
+# These files are explicitly included by negating the exclude pattern
+
+!package.json
+!src/
+!bin/
+
+# =============================================================================
+# CONTAINER-SPECIFIC EXCLUSIONS
+# =============================================================================
+# Additional exclusions specific to container build optimization
+# These patterns optimize the Docker build context for security and performance
+
+.env.local
+.env.development
+.env.test
+.env.production
+node_modules
+coverage
+.nyc_output
+test-results
+logs
+tmp
+temp
