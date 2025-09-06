@@ -1,124 +1,315 @@
-version: "3.9"
+# =============================================================================
+# Node.js Tutorial Application - Development Docker Compose Configuration
+# =============================================================================
+# Development Docker Compose configuration file for the Node.js tutorial application that provides
+# local development environment with hot reloading, volume mounting, development debugging capabilities,
+# and educational Docker concepts. Implements Docker Compose development patterns with Express.js 5.1.0,
+# Node.js 22.x LTS, development-optimized container configuration, file watching support, and
+# comprehensive development workflow integration while maintaining educational clarity for learning
+# containerized development with Node.js applications.
+#
+# Features:
+# - Hot reloading support through volume mounting and nodemon integration
+# - Development debugging with Node.js inspector port exposure (9229)
+# - Comprehensive volume management for source code, configuration, and development data
+# - Development-optimized environment variables with verbose logging and debugging
+# - Container health checks with Kubernetes and Docker Swarm compatibility
+# - Development network isolation with bridge networking
+# - Persistent volume management for node_modules caching and development data
+# - Educational Docker Compose patterns demonstrating best practices
+# - Development workflow optimization with cached volume consistency
+# - Container orchestration preparation for production scaling
+#
+# Compatible with:
+# - Docker Compose 3.8 specification for modern container orchestration features
+# - Node.js 22.11.0 LTS (Active LTS until October 2025)
+# - Express.js 5.1.0 with enhanced async/await support and ReDoS prevention
+# - Chrome DevTools integration for debugging containerized applications
+# - Visual Studio Code and other development environments with container debugging
+#
+# Usage:
+# - Start development environment: docker-compose up -d
+# - View application logs: docker-compose logs -f nodejs-tutorial-dev
+# - Access application: http://localhost:3000/hello
+# - Debug with Chrome DevTools: chrome://inspect (localhost:9229)
+# - Run tests: docker-compose exec nodejs-tutorial-dev npm test
+# - Stop development environment: docker-compose down
+# =============================================================================
 
+# Docker Compose specification version 3.8 for modern features and compatibility
+# Version 3.8 provides advanced networking, volume management, and health check capabilities
+version: '3.8'
+
+# =============================================================================
+# SERVICE DEFINITIONS
+# =============================================================================
 services:
-  # Main API service
-  api:
+  # Primary Node.js tutorial development service with comprehensive development features
+  nodejs-tutorial-dev:
+    # Service description for documentation and operational clarity
+    # Explains the service purpose and key development features
+    container_name: 'nodejs-tutorial-dev'
+    
+    # Multi-stage Docker build configuration for development target
+    # Uses local Dockerfile with development-optimized build stage
     build:
+      # Build context set to current directory for accessing all application files
       context: .
-      dockerfile: Dockerfile
+      
+      # Dockerfile path for multi-stage container build with development optimizations
+      dockerfile: 'Dockerfile'
+      
+      # Target the 'build' stage for development with all dependencies and debugging tools
+      # The build stage includes development dependencies, testing tools, and debugging capabilities
+      target: 'build'
+      
+      # Build arguments for container customization and development environment setup
+      args:
+        # Node.js version for runtime compatibility and LTS stability
+        NODE_VERSION: '22'
+        
+        # Environment targeting development for appropriate dependency installation
+        NODE_ENV: 'development'
+        
+        # Build timestamp for image tracking and cache busting
+        BUILD_DATE: "${BUILD_DATE:-$(date -u +'%Y-%m-%dT%H:%M:%SZ')}"
+        
+        # Version control reference for source code tracking
+        VCS_REF: '${VCS_REF:-$(git rev-parse --short HEAD)}'
+      
+      # Docker layer caching for faster rebuilds during development iterations
+      # Utilizes previously built images to accelerate development workflow
+      cache_from:
+        - 'nodejs-tutorial:dev'
+        - 'nodejs-tutorial:build'
+    
+    # Development image tag for identification and version management
+    image: 'nodejs-tutorial:dev'
+    
+    # Container restart policy for development workflow consistency
+    # unless-stopped ensures container persists across Docker daemon restarts
+    restart: unless-stopped
+    
+    # Port mapping for application HTTP server and Node.js debugging
     ports:
-      - "3000:3000"  # Main API port
-      - "8080:8080"  # WebSocket port
-      - "9229:9229"  # Debug port
+      # HTTP server port mapping for application access
+      # Host port 3000 maps to container port 3000 for development access
+      - '3000:3000'
+      
+      # Node.js inspector port for Chrome DevTools debugging
+      # Port 9229 enables debugging with Chrome DevTools and VS Code
+      - '9229:9229'
+    
+    # Development environment variables for debugging, logging, and development features
     environment:
-      - NODE_ENV=development
-      - PORT=3000
-      - DEBUG=voice-agent:*
-      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/voice_agent
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - LOG_LEVEL=debug
-      - CORS_ORIGIN=http://localhost:3000
-      - JWT_SECRET=dev_secret
-      - API_RATE_LIMIT=100
-      - WEBSOCKET_HEARTBEAT_INTERVAL=30
-      - TZ=UTC
+      # Core Node.js environment configuration
+      NODE_ENV: 'development'
+      PORT: '3000'
+      HOST: '0.0.0.0'
+      
+      # Enhanced logging configuration for development debugging
+      LOG_LEVEL: 'debug'
+      DEBUG: '*'
+      VERBOSE: 'true'
+      
+      # File watching and hot reload configuration
+      WATCH_FILES: 'true'
+      HOT_RELOAD: 'true'
+      
+      # Security settings relaxed for development workflow
+      TRUST_PROXY: 'false'
+      RATE_LIMIT_ENABLED: 'false'
+      HELMET_ENABLED: 'false'
+      
+      # Feature toggles for development environment
+      ENABLE_METRICS: 'false'
+      COMPRESSION_ENABLED: 'false'
+    
+    # Comprehensive volume mounting for development workflow and hot reloading
     volumes:
-      - .:/app:delegated
-      - /app/node_modules
-      - ./logs:/app/logs
-      - ./uploads:/app/uploads
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "node", "./healthcheck.js"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-    command: ["npm", "run", "dev:watch"]
-    deploy:
-      resources:
-        limits:
-          cpus: "2"
-          memory: 2G
+      # Source code volumes with cached consistency for optimal development performance
+      # Cached consistency provides balanced performance between file sync speed and consistency
+      - './src:/usr/src/app/src:cached'
+      - './config:/usr/src/app/config:cached'
+      - './test:/usr/src/app/test:cached'
+      - './docs:/usr/src/app/docs:cached'
+      - './scripts:/usr/src/app/scripts:cached'
+      
+      # Configuration files mounted as read-only for immediate configuration changes
+      # Read-only mounting prevents accidental modification while enabling hot reloading
+      - './package.json:/usr/src/app/package.json:ro'
+      - './package-lock.json:/usr/src/app/package-lock.json:ro'
+      - './nodemon.json:/usr/src/app/nodemon.json:ro'
+      - './.eslintrc.js:/usr/src/app/.eslintrc.js:ro'
+      - './.prettierrc:/usr/src/app/.prettierrc:ro'
+      - './jest.config.js:/usr/src/app/jest.config.js:ro'
+      
+      # Node.js modules volume for dependency caching and performance optimization
+      # Named volume prevents host/container file system conflicts and improves performance
+      - 'node_modules:/usr/src/app/node_modules'
+      
+      # Development data volumes with read-write access for logs, temporary files, and coverage
+      # Persistent volumes enable data retention across container restarts for debugging
+      - 'dev-logs:/usr/src/app/logs:rw'
+      - 'dev-tmp:/usr/src/app/tmp:rw'
+      - 'dev-coverage:/usr/src/app/coverage:rw'
+    
+    # Network attachment for service isolation and communication
     networks:
-      - backend
-    restart: unless-stopped
-
-  # PostgreSQL database service
-  postgres:
-    image: postgres:15-alpine
-    ports:
-      - "5432:5432"
-    environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=voice_agent
-      - PGDATA=/var/lib/postgresql/data/pgdata
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./init-scripts:/docker-entrypoint-initdb.d
+      - nodejs-tutorial-dev-network
+    
+    # Container health check for monitoring and orchestration integration
+    # Health check enables automatic container recovery and deployment monitoring
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d voice_agent"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
-    deploy:
-      resources:
-        limits:
-          cpus: "1"
-          memory: 1G
-    networks:
-      - backend
-    restart: unless-stopped
+      # Health check command using Node.js HTTP client for application endpoint testing
+      test: 
+        - 'CMD'
+        - 'node'
+        - '-e'
+        - |
+          const http=require('http');
+          const options={host:'localhost',port:3000,path:'/health',timeout:5000};
+          const req=http.request(options,(r)=>{
+            if(r.statusCode===200){process.exit(0)}
+            else{process.exit(1)}
+          });
+          req.on('error',()=>process.exit(1));
+          req.end();
+      
+      # Health check timing configuration optimized for development workflow
+      interval: 30s      # Check every 30 seconds for regular monitoring
+      timeout: 10s       # Allow 10 seconds for health check response
+      retries: 3         # Retry 3 times before marking unhealthy
+      start_period: 10s  # Wait 10 seconds after container start before first check
+    
+    # Development command override for hot reloading with nodemon
+    # npm run dev executes nodemon for automatic restart on file changes
+    command: ['npm', 'run', 'dev']
+    
+    # Interactive terminal support for debugging and development
+    # Enables interactive debugging sessions and REPL access
+    stdin_open: true
+    tty: true
+    
+    # Non-root user execution for security best practices
+    # node:node user provides appropriate permissions while maintaining security
+    user: 'node:node'
+    
+    # Working directory inside container for application execution
+    working_dir: '/usr/src/app'
+    
+    # Container labels for metadata, monitoring, and operational tracking
+    labels:
+      # Application identification labels
+      app: 'nodejs-tutorial'
+      environment: 'development'
+      version: '${VERSION:-dev}'
+      maintainer: 'nodejs-tutorial-team'
+      
+      # OCI (Open Container Initiative) standard labels for container metadata
+      org.opencontainers.image.title: 'Node.js Hello Tutorial Development'
+      org.opencontainers.image.description: 'Development environment for educational Node.js tutorial application'
+      org.opencontainers.image.version: '${VERSION:-dev}'
+      org.opencontainers.image.source: 'https://github.com/nodejs-tutorial/hello-world'
+    
+    # Container logging configuration for development debugging
+    logging:
+      # JSON file driver for structured log output and external log management
+      driver: json-file
+      options:
+        # Log rotation configuration to prevent disk space issues
+        max-size: '10m'    # Maximum log file size before rotation
+        max-file: '3'      # Keep 3 rotated log files for debugging history
 
-  # Redis cache service
-  redis:
-    image: redis:7.0-alpine
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-      - ./redis.conf:/usr/local/etc/redis/redis.conf
-    command: ["redis-server", "/usr/local/etc/redis/redis.conf"]
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
-    deploy:
-      resources:
-        limits:
-          cpus: "0.5"
-          memory: 512M
-    networks:
-      - backend
-    restart: unless-stopped
-
-volumes:
-  postgres_data:
-    driver: local
-    driver_opts:
-      type: none
-      device: ./data/postgres
-      o: bind
-  redis_data:
-    driver: local
-    driver_opts:
-      type: none
-      device: ./data/redis
-      o: bind
-
+# =============================================================================
+# NETWORK DEFINITIONS
+# =============================================================================
 networks:
-  backend:
+  # Development network for service isolation and communication
+  nodejs-tutorial-dev-network:
+    # Bridge driver for local development with container isolation
     driver: bridge
+    
+    # IP Address Management (IPAM) configuration for network addressing
     ipam:
       driver: default
       config:
-        - subnet: 172.28.0.0/16
+        # Private subnet range for development network isolation
+        # 172.21.0.0/16 provides isolated network space for development services
+        - subnet: '172.21.0.0/16'
+    
+    # Network labels for identification and operational management
+    labels:
+      app: 'nodejs-tutorial'
+      environment: 'development'
+      purpose: 'development-network-isolation'
+
+# =============================================================================
+# VOLUME DEFINITIONS
+# =============================================================================
+volumes:
+  # Node.js modules volume for dependency caching and performance optimization
+  node_modules:
+    # Local driver for persistent volume storage on development machine
+    driver: local
+    
+    # Volume labels for identification and management
+    labels:
+      app: 'nodejs-tutorial'
+      environment: 'development'
+      purpose: 'node-modules-cache'
+  
+  # Development logs volume for persistent log storage and debugging
+  dev-logs:
+    driver: local
+    labels:
+      app: 'nodejs-tutorial'
+      environment: 'development'
+      purpose: 'development-logs'
+  
+  # Development temporary files volume for build artifacts and temporary data
+  dev-tmp:
+    driver: local
+    labels:
+      app: 'nodejs-tutorial'
+      environment: 'development'
+      purpose: 'temporary-development-files'
+  
+  # Development test coverage volume for coverage reports and analysis
+  dev-coverage:
+    driver: local
+    labels:
+      app: 'nodejs-tutorial'
+      environment: 'development'
+      purpose: 'test-coverage-reports'
+
+# =============================================================================
+# DEVELOPMENT WORKFLOW COMMANDS
+# =============================================================================
+# Educational Docker Compose commands for development workflow:
+#
+# STARTUP AND MANAGEMENT:
+# docker-compose up -d                              # Start development environment in background
+# docker-compose up                                 # Start with attached logs for debugging
+# docker-compose down                               # Stop and remove containers
+# docker-compose down -v                            # Stop and remove containers with volumes
+# docker-compose restart nodejs-tutorial-dev       # Restart application service
+#
+# DEVELOPMENT AND DEBUGGING:
+# docker-compose logs -f nodejs-tutorial-dev       # Follow application logs in real-time
+# docker-compose exec nodejs-tutorial-dev bash     # Open interactive shell in container
+# docker-compose exec nodejs-tutorial-dev npm test # Run tests inside container
+# docker-compose exec nodejs-tutorial-dev npm run lint # Run code linting
+#
+# MONITORING AND TROUBLESHOOTING:
+# docker-compose ps                                 # Show running services status
+# docker-compose top nodejs-tutorial-dev           # Show running processes in container
+# docker-compose images                             # List Docker Compose images
+# docker-compose config                             # Validate and view configuration
+#
+# DEVELOPMENT TESTING:
+# curl http://localhost:3000/hello                  # Test hello endpoint
+# curl http://localhost:3000/health                 # Test health check endpoint
+# chrome://inspect                                  # Chrome DevTools debugging (port 9229)
+#
+# =============================================================================
