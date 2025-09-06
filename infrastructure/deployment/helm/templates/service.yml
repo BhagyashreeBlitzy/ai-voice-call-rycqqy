@@ -1,0 +1,305 @@
+{{/*
+Kubernetes Service Template for Node.js Tutorial Application with Express.js 5.1.0
+=================================================================================
+
+This Helm template generates production-ready Kubernetes Service manifests for the Node.js tutorial 
+application using Go templating syntax and Helm built-in objects. Creates ClusterIP service definitions 
+with dynamic configuration from values.yml, comprehensive labeling, monitoring integration, and educational 
+metadata. Implements load balancing for the Express.js 5.1.0 HTTP server running on port 3000 with 
+service discovery patterns and multi-environment deployment support.
+
+Features:
+- Dynamic service configuration through Helm values with environment-specific overrides and conditional rendering
+- Production-ready service networking with load balancing across deployment pod replicas
+- Comprehensive monitoring integration with Prometheus service discovery and health check endpoints
+- Educational Helm templating demonstrating Go template syntax, conditional logic, and helper functions
+- Service discovery integration through Kubernetes DNS with consistent naming patterns
+- Cloud provider compatibility with annotations for AWS, GCP, and Azure load balancer integration
+- Multi-environment deployment support with values-based configuration management
+- Security-compliant service configuration with network policies and traffic control
+
+Template Objects:
+- .Values.service: Service-specific configuration including type, ports, and networking options
+- .Values.monitoring: Monitoring integration settings for Prometheus and observability
+- .Chart: Chart metadata from Chart.yml for consistent resource naming and versioning
+- .Release: Deployment-specific information including namespace, name, and revision tracking
+- .Template: Template metadata for debugging and operational transparency
+
+Educational Concepts:
+- Helm Go template syntax with built-in functions and conditional rendering patterns
+- Kubernetes Service resource structure with networking specification and endpoint management
+- Service-to-Pod coordination through selector labels and deployment integration
+- Load balancing configuration and session affinity management for stateless applications
+- Monitoring integration through template annotations and Prometheus service discovery
+- Template helper functions for consistent resource naming, labeling, and operational patterns
+- Cloud provider integration through conditional annotations and platform-specific configuration
+*/}}
+
+{{/*
+Conditional Service Creation with Environment-Based Enablement
+*/}}
+{{- if .Values.service.enabled | default true }}
+
+{{/*
+Template Header with API Version and Resource Kind
+*/}}
+apiVersion: v1
+kind: Service
+
+{{/*
+Metadata Section with Dynamic Naming, Comprehensive Labeling, and Educational Annotations
+*/}}
+metadata:
+  name: {{ include "nodejs-tutorial.serviceName" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "nodejs-tutorial.serviceLabels" . | nindent 4 }}
+    app.kubernetes.io/component: service
+    service.kubernetes.io/type: {{ .Values.service.type | default "ClusterIP" }}
+  annotations:
+    # Service management and deployment tracking
+    helm.sh/managed-by: {{ .Release.Service }}
+    helm.sh/chart-version: {{ .Chart.Version }}
+    helm.sh/app-version: {{ .Chart.AppVersion }}
+    helm.sh/release-revision: "{{ .Release.Revision }}"
+    
+    # Educational and tutorial metadata for learning context
+    tutorial.example.com/framework: "express"
+    tutorial.example.com/framework-version: "5.1.0" 
+    tutorial.example.com/node-version: "22"
+    tutorial.example.com/service-endpoints: "/hello,/health,/livez,/readyz"
+    tutorial.example.com/concepts: "kubernetes-service,helm-templating,load-balancing,service-discovery"
+    tutorial.example.com/learning-objectives: "helm-service-templates,dynamic-configuration,port-mapping,pod-selection"
+    
+    # Service configuration and operational metadata
+    service.example.com/description: "Kubernetes service for Node.js tutorial application exposing Express.js 5.1.0 HTTP server with load balancing"
+    service.example.com/service-type: {{ .Values.service.type | default "ClusterIP" | quote }}
+    service.example.com/target-port: {{ .Values.service.targetPort | default 3000 | quote }}
+    service.example.com/load-balancing: "round-robin"
+    
+    {{- if .Values.monitoring.enabled }}
+    # Monitoring integration annotations for Prometheus service discovery
+    prometheus.io/scrape: "true"
+    prometheus.io/port: {{ .Values.service.port | default 80 | quote }}
+    prometheus.io/path: {{ .Values.monitoring.prometheus.path | default "/health" | quote }}
+    prometheus.io/interval: {{ .Values.monitoring.prometheus.interval | default "30s" | quote }}
+    monitoring.example.com/enabled: "true"
+    monitoring.example.com/scrape-endpoint: {{ .Values.monitoring.prometheus.path | default "/health" | quote }}
+    {{- end }}
+    
+    {{- if eq (.Values.service.type | default "ClusterIP") "LoadBalancer" }}
+    # Load balancer specific annotations
+    {{- if .Values.service.loadBalancerClass }}
+    service.kubernetes.io/load-balancer-class: {{ .Values.service.loadBalancerClass | quote }}
+    {{- end }}
+    {{- end }}
+    
+    {{- if .Values.cloudProvider.aws.enabled }}
+    # AWS Load Balancer Controller annotations
+    service.beta.kubernetes.io/aws-load-balancer-type: {{ .Values.cloudProvider.aws.loadBalancerAnnotations | default "nlb" | quote }}
+    service.beta.kubernetes.io/aws-load-balancer-backend-protocol: "http"
+    service.beta.kubernetes.io/aws-load-balancer-health-check-path: "/health"
+    service.beta.kubernetes.io/aws-load-balancer-health-check-interval: "30"
+    {{- end }}
+    
+    {{- if .Values.cloudProvider.gcp.enabled }}
+    # Google Cloud Load Balancer annotations
+    cloud.google.com/neg: '{"ingress": true}'
+    cloud.google.com/backend-config: '{"default": "nodejs-tutorial-backend-config"}'
+    {{- end }}
+    
+    {{- if .Values.cloudProvider.azure.enabled }}
+    # Azure Application Gateway annotations  
+    service.beta.kubernetes.io/azure-load-balancer-health-probe-request-path: "/health"
+    service.beta.kubernetes.io/azure-load-balancer-health-probe-protocol: "http"
+    {{- end }}
+    
+    {{- with .Values.service.annotations }}
+    # Additional custom service annotations from values
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+
+{{/*
+Service Specification with Port Configuration, Selector Labels, and Network Policies
+*/}}
+spec:
+  # Service type configuration with environment-specific defaults
+  type: {{ .Values.service.type | default "ClusterIP" }}
+  
+  # Port configuration with comprehensive options and protocol specification
+  ports:
+  {{- include "nodejs-tutorial.servicePorts" . | nindent 2 }}
+  
+  # Pod selector using consistent labels for deployment coordination
+  selector:
+    {{- include "nodejs-tutorial.selectorLabels" . | nindent 4 }}
+  
+  # Session affinity configuration for stateless application optimization
+  sessionAffinity: {{ .Values.service.sessionAffinity | default "None" }}
+  {{- if .Values.service.sessionAffinityConfig }}
+  sessionAffinityConfig:
+    {{- toYaml .Values.service.sessionAffinityConfig | nindent 4 }}
+  {{- end }}
+  
+  # IP family configuration for IPv4/IPv6 dual-stack support
+  ipFamilies:
+  {{- .Values.service.ipFamilies | default (list "IPv4") | toYaml | nindent 2 }}
+  ipFamilyPolicy: {{ .Values.service.ipFamilyPolicy | default "SingleStack" }}
+  
+  {{- if eq (.Values.service.type) "LoadBalancer" }}
+  # LoadBalancer-specific configuration when service type is LoadBalancer
+  {{- if .Values.service.loadBalancerIP }}
+  loadBalancerIP: {{ .Values.service.loadBalancerIP }}
+  {{- end }}
+  {{- if .Values.service.loadBalancerSourceRanges }}
+  loadBalancerSourceRanges:
+  {{- .Values.service.loadBalancerSourceRanges | toYaml | nindent 2 }}
+  {{- end }}
+  {{- if .Values.service.allocateLoadBalancerNodePorts }}
+  allocateLoadBalancerNodePorts: {{ .Values.service.allocateLoadBalancerNodePorts }}
+  {{- end }}
+  {{- end }}
+  
+  {{- if or (eq (.Values.service.type) "LoadBalancer") (eq (.Values.service.type) "NodePort") }}
+  # External traffic policy for LoadBalancer and NodePort services
+  externalTrafficPolicy: {{ .Values.service.externalTrafficPolicy | default "Cluster" }}
+  {{- if .Values.service.healthCheckNodePort }}
+  healthCheckNodePort: {{ .Values.service.healthCheckNodePort }}
+  {{- end }}
+  {{- end }}
+  
+  {{- if .Values.service.internalTrafficPolicy }}
+  # Internal traffic policy configuration for cluster-internal traffic
+  internalTrafficPolicy: {{ .Values.service.internalTrafficPolicy }}
+  {{- end }}
+
+{{- end }}
+
+{{/*
+=================================================================================
+HELM TEMPLATE HELPER FUNCTIONS FOR SERVICE CONFIGURATION
+=================================================================================
+
+These helper functions provide consistent service configuration, naming, and labeling
+patterns across all Helm templates in the chart. They demonstrate advanced Helm templating
+techniques and ensure operational consistency with educational value.
+*/}}
+
+{{/*
+Generate service name with override capability for custom naming requirements
+*/}}
+{{- define "nodejs-tutorial.serviceName" -}}
+{{- if .Values.service.nameOverride }}
+{{- .Values.service.nameOverride | trunc 63 | trimSuffix "-" }}
+{{- else }}
+{{- include "nodejs-tutorial.fullname" . }}
+{{- end }}
+{{- end }}
+
+{{/*
+Generate comprehensive service labels including component identification and custom labels
+*/}}
+{{- define "nodejs-tutorial.serviceLabels" -}}
+{{ include "nodejs-tutorial.labels" . }}
+app.kubernetes.io/component: service
+{{- if .Values.service.labels }}
+{{ .Values.service.labels | toYaml }}
+{{- end }}
+{{- end }}
+
+{{/*
+Generate service port configuration with support for NodePort, additional ports, and protocol options
+*/}}
+{{- define "nodejs-tutorial.servicePorts" -}}
+- name: {{ .Values.service.portName | default "http" }}
+  protocol: {{ .Values.service.protocol | default "TCP" }}
+  port: {{ .Values.service.port | default 80 }}
+  targetPort: {{ .Values.service.targetPort | default 3000 }}
+  {{- if and (eq (.Values.service.type | default "ClusterIP") "NodePort") (.Values.service.nodePort) }}
+  nodePort: {{ .Values.service.nodePort }}
+  {{- end }}
+{{- if .Values.service.additionalPorts }}
+{{- range .Values.service.additionalPorts }}
+- name: {{ .name }}
+  protocol: {{ .protocol | default "TCP" }}
+  port: {{ .port }}
+  targetPort: {{ .targetPort }}
+  {{- if and (eq ($.Values.service.type | default "ClusterIP") "NodePort") (.nodePort) }}
+  nodePort: {{ .nodePort }}
+  {{- end }}
+{{- end }}
+{{- end }}
+{{- end }}
+
+{{/*
+=================================================================================
+EDUCATIONAL SERVICE CONFIGURATION EXAMPLES AND DOCUMENTATION
+=================================================================================
+
+Multi-Environment Service Configuration Examples:
+
+1. Development Environment:
+   service:
+     type: ClusterIP
+     port: 80
+     targetPort: 3000
+     enabled: true
+
+2. Staging Environment with LoadBalancer:
+   service:
+     type: LoadBalancer
+     port: 80
+     targetPort: 3000
+     loadBalancerSourceRanges:
+       - "10.0.0.0/8"
+
+3. Production Environment with NodePort:
+   service:
+     type: NodePort
+     port: 80
+     targetPort: 3000
+     nodePort: 30080
+     externalTrafficPolicy: Local
+
+Service Discovery Patterns:
+- DNS: nodejs-tutorial.default.svc.cluster.local
+- Short DNS: nodejs-tutorial.default.svc
+- Namespace DNS: nodejs-tutorial
+- Environment-specific: nodejs-tutorial-staging
+
+Monitoring Integration:
+- Prometheus scraping: enabled through annotations
+- Health check endpoint: /health
+- Metrics collection: automatic service discovery
+- Alert integration: service-level monitoring
+
+Load Balancing Strategies:
+- Round-robin: default behavior for stateless apps
+- Session affinity: disabled for optimal distribution
+- Health-based routing: readiness probe integration
+- Traffic policies: cluster-wide or local node preference
+
+Security Considerations:
+- Network policies: service name reference for traffic rules
+- Ingress integration: backend service for external access
+- TLS termination: upstream proxy or ingress controller
+- Service mesh: compatible with Istio, Linkerd, Consul Connect
+
+Cloud Provider Integration:
+- AWS: ALB/NLB integration with target groups
+- GCP: NEG integration with ingress controllers
+- Azure: Application Gateway backend configuration
+- Multi-cloud: portable service definitions
+
+Troubleshooting Commands:
+- kubectl get service -l app.kubernetes.io/name=nodejs-tutorial
+- kubectl describe service nodejs-tutorial
+- kubectl get endpoints nodejs-tutorial
+- kubectl port-forward service/nodejs-tutorial 8080:80
+
+Performance Optimization:
+- Service endpoints: automatic load balancing
+- Pod readiness: traffic routing control
+- Health checks: seamless failover
+- Resource limits: prevent service degradation
+*/}}
