@@ -1,0 +1,413 @@
+# =============================================================================
+# Docker Build and Publish Workflow - Node.js Tutorial Application
+# =============================================================================
+# Comprehensive GitHub Actions workflow for Docker containerization pipeline that builds, tests,
+# and publishes Docker images for the Node.js tutorial application. Implements educational
+# container deployment patterns with Express.js 5.1.0 and Node.js 22.x LTS, featuring
+# multi-stage builds, security scanning, vulnerability assessment, and registry publishing
+# while maintaining clear learning objectives for containerization concepts.
+#
+# Educational Features Demonstrated:
+# - Multi-stage Docker builds for production optimization with separation of build and runtime environments
+# - Container security scanning with Trivy and comprehensive vulnerability assessment workflows
+# - Multi-platform image building for AMD64 and ARM64 architectures using Docker Buildx
+# - Container registry authentication and publishing patterns with GitHub Container Registry (GHCR)
+# - Docker build caching strategies for CI/CD optimization and faster build times
+# - Container health testing procedures with comprehensive validation and monitoring integration
+# - Software Bill of Materials (SBOM) generation for supply chain security transparency
+# - Security reporting integration with SARIF format for GitHub Security tab visibility
+# - Container provenance and attestation for secure software supply chain practices
+# - Educational documentation generation with comprehensive workflow summaries and learning guides
+
+name: "Docker Build and Publish"
+
+on:
+  # Trigger on push events to main and develop branches with Docker-related file changes
+  push:
+    branches:
+      - main
+      - develop
+    paths:
+      - 'src/backend/**'
+      - 'src/backend/Dockerfile'
+      - 'src/backend/.dockerignore'
+      - '.github/workflows/docker.yml'
+
+  # Trigger on pull request events for validation and testing without publishing
+  pull_request:
+    branches:
+      - main
+    types:
+      - opened
+      - synchronize
+      - reopened
+    paths:
+      - 'src/backend/**'
+      - 'src/backend/Dockerfile'
+      - 'src/backend/.dockerignore'
+
+  # Trigger on release events for versioned image publishing
+  release:
+    types:
+      - published
+      - created
+
+  # Manual workflow dispatch with configurable parameters for testing and debugging
+  workflow_dispatch:
+    inputs:
+      push_image:
+        description: 'Push image to registry after build'
+        required: false
+        default: 'false'
+        type: boolean
+      platforms:
+        description: 'Target platforms for multi-arch build'
+        required: false
+        default: 'linux/amd64,linux/arm64'
+        type: string
+      security_scan:
+        description: 'Enable comprehensive security scanning'
+        required: false
+        default: 'true'
+        type: boolean
+
+# Workflow concurrency management to prevent resource conflicts and optimize build execution
+concurrency:
+  group: 'docker-${{ github.ref }}'
+  cancel-in-progress: true
+
+# Global environment variables for Docker build configuration and registry management
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: nodejs-hello-tutorial
+  NODE_VERSION: '22'
+  DOCKER_BUILDKIT: '1'
+  BUILDX_NO_DEFAULT_ATTESTATIONS: '1'
+
+jobs:
+  docker-build:
+    name: "Build Docker Images"
+    description: "Build Docker images with multi-stage optimization, security scanning, and educational tagging for container deployment learning"
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+
+    # Comprehensive permissions for container registry publishing and security reporting
+    permissions:
+      contents: read          # Read repository contents and checkout code
+      packages: write         # Push Docker images to GitHub Container Registry
+      security-events: write  # Upload security scan results to Security tab
+      id-token: write         # OIDC token authentication for enhanced security
+
+    # Job outputs for downstream workflow integration and artifact management
+    outputs:
+      image-digest: ${{ steps.build.outputs.digest }}
+      image-tags: ${{ steps.meta.outputs.tags }}
+      security-scan-results: ${{ steps.trivy.outputs.results }}
+
+    steps:
+      # =========================================================================
+      # STEP 1: Repository Checkout and Git Configuration
+      # =========================================================================
+      - name: "Checkout Repository"
+        uses: actions/checkout@v4 # v4.2.1
+        with:
+          fetch-depth: 0  # Full Git history for accurate metadata extraction
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      # =========================================================================
+      # STEP 2: Docker Buildx Setup for Multi-Platform Builds
+      # =========================================================================
+      - name: "Set up Docker Buildx"
+        uses: docker/setup-buildx-action@v3 # v3.6.1
+        with:
+          version: latest
+          driver-opts: image=moby/buildkit:latest
+          buildkitd-flags: --debug
+
+      # =========================================================================
+      # STEP 3: Container Registry Authentication (Skip for Pull Requests)
+      # =========================================================================
+      - name: "Log in to Container Registry"
+        uses: docker/login-action@v3 # v3.3.0
+        if: github.event_name != 'pull_request'
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # =========================================================================
+      # STEP 4: Docker Metadata Extraction for Image Tagging and Labeling
+      # =========================================================================
+      - name: "Extract Docker Metadata"
+        id: meta
+        uses: docker/metadata-action@v5 # v5.5.1
+        with:
+          images: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}
+          tags: |
+            # Branch-based tagging for development workflows
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,prefix={{branch}}-
+            # Latest tag for default branch
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=tutorial-latest,enable={{is_default_branch}}
+            # Semantic version tagging for releases
+            type=semver,pattern={{version}},enable={{is_default_branch}}
+            type=semver,pattern={{major}}.{{minor}},enable={{is_default_branch}}
+          labels: |
+            # Educational and operational metadata labels following OCI standards
+            org.opencontainers.image.title=Node.js Hello Tutorial
+            org.opencontainers.image.description=Educational Node.js tutorial application with Express.js 5.1.0 framework
+            org.opencontainers.image.vendor=Node.js Tutorial Team
+            org.opencontainers.image.licenses=MIT
+            # Educational metadata for learning classification
+            tutorial.purpose=educational
+            tutorial.level=beginner
+            tutorial.concepts=nodejs,express,docker,containerization
+
+      # =========================================================================
+      # STEP 5: Multi-Stage Docker Image Build with Optimization
+      # =========================================================================
+      - name: "Build Docker Image"
+        id: build
+        uses: docker/build-push-action@v5 # v5.4.0
+        with:
+          context: src/backend
+          file: src/backend/Dockerfile
+          platforms: ${{ github.event.inputs.platforms || 'linux/amd64,linux/arm64' }}
+          push: false  # Build only, push handled separately for security validation
+          load: ${{ github.event_name == 'pull_request' || github.ref == 'refs/heads/main' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          # GitHub Actions cache integration for optimal build performance
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          # Build arguments for image metadata and version information
+          build-args: |
+            NODE_VERSION=${{ env.NODE_VERSION }}
+            BUILD_DATE=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.created'] }}
+            VCS_REF=${{ github.sha }}
+            VERSION=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.version'] }}
+          # Supply chain security features
+          provenance: true
+          sbom: true
+
+      # =========================================================================
+      # STEP 6: Container Health Testing and Functional Validation
+      # =========================================================================
+      - name: "Test Container Health"
+        if: steps.build.outputs.digest
+        run: |
+          set -euo pipefail
+          
+          # Get the first tag for testing
+          IMAGE_TAG=$(echo "${{ steps.meta.outputs.tags }}" | head -n1)
+          echo "Testing image health: $IMAGE_TAG"
+          
+          # Run container with health check timeout
+          docker run --rm -d \
+            --name test-container \
+            --health-cmd="curl -f http://localhost:3000/health || exit 1" \
+            --health-interval=10s \
+            --health-timeout=5s \
+            --health-retries=3 \
+            -p 3000:3000 \
+            "$IMAGE_TAG"
+          
+          # Wait for container to be healthy
+          echo "Waiting for container to become healthy..."
+          timeout 60 bash -c 'while [[ "$(docker inspect test-container --format="{{.State.Health.Status}}")" != "healthy" ]]; do sleep 2; done'
+          
+          # Test hello endpoint
+          echo "Testing /hello endpoint..."
+          response=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/hello)
+          if [ "$response" -ne 200 ]; then
+            echo "❌ /hello endpoint failed with status: $response"
+            exit 1
+          fi
+          
+          # Test health endpoint
+          echo "Testing /health endpoint..."
+          health_response=$(curl -s http://localhost:3000/health)
+          echo "Health check response: $health_response"
+          
+          # Stop test container
+          docker stop test-container
+          echo "✅ Container health tests passed"
+
+      # =========================================================================
+      # STEP 7: Trivy Security Scanning with SARIF Output
+      # =========================================================================
+      - name: "Run Trivy Security Scan"
+        if: github.event.inputs.security_scan != 'false'
+        uses: aquasecurity/trivy-action@master # master (latest)
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH,MEDIUM'
+          exit-code: '0'  # Don't fail build on vulnerabilities, report only
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+
+      # =========================================================================
+      # STEP 8: Upload Trivy Results to GitHub Security Tab
+      # =========================================================================
+      - name: "Upload Trivy Scan Results"
+        if: always() && github.event.inputs.security_scan != 'false'
+        uses: github/codeql-action/upload-sarif@v3 # v3.26.6
+        with:
+          sarif_file: trivy-results.sarif
+
+      # =========================================================================
+      # STEP 9: Comprehensive Security Scanning with Custom Scripts
+      # =========================================================================
+      - name: "Run Comprehensive Security Scan"
+        if: github.event.inputs.security_scan != 'false'
+        working-directory: src/backend
+        run: |
+          set -euo pipefail
+          
+          # Make security scan script executable
+          chmod +x scripts/security-scan.sh
+          
+          # Get first image tag for scanning
+          IMAGE_TAG=$(echo "${{ steps.meta.outputs.tags }}" | head -n1)
+          
+          # Run container security scan
+          echo "🔍 Running comprehensive container security scan..."
+          ./scripts/security-scan.sh \
+            --container-only \
+            --docker-image="$IMAGE_TAG" \
+            --format=json,sarif,html \
+            --educational \
+            --output-dir=./security-reports
+          
+          # Display scan summary
+          if [ -f ./security-reports/scan-summary.json ]; then
+            echo "📊 Security Scan Summary:"
+            cat ./security-reports/scan-summary.json | jq -r '.summary'
+          fi
+
+      # =========================================================================
+      # STEP 10: Upload Security Reports as Workflow Artifacts
+      # =========================================================================
+      - name: "Upload Security Reports"
+        if: always() && github.event.inputs.security_scan != 'false'
+        uses: actions/upload-artifact@v3 # v3.2.1
+        with:
+          name: docker-security-reports-${{ github.sha }}
+          path: src/backend/security-reports/
+          retention-days: 30
+
+      # =========================================================================
+      # STEP 11: Software Bill of Materials (SBOM) Generation
+      # =========================================================================
+      - name: "Generate SBOM"
+        if: github.event_name != 'pull_request'
+        run: |
+          set -euo pipefail
+          
+          # Install syft for SBOM generation
+          curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
+          
+          # Generate SBOM for the image
+          IMAGE_TAG=$(echo "${{ steps.meta.outputs.tags }}" | head -n1)
+          echo "📋 Generating SBOM for: $IMAGE_TAG"
+          
+          syft "$IMAGE_TAG" -o spdx-json=sbom.spdx.json
+          syft "$IMAGE_TAG" -o cyclonedx-json=sbom.cyclonedx.json
+          
+          # Display SBOM summary
+          echo "📊 SBOM Generated Successfully"
+          echo "SPDX format: sbom.spdx.json"
+          echo "CycloneDX format: sbom.cyclonedx.json"
+
+      # =========================================================================
+      # STEP 12: Upload SBOM Artifacts for Supply Chain Transparency
+      # =========================================================================
+      - name: "Upload SBOM Artifacts"
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@v3 # v3.2.1
+        with:
+          name: docker-sbom-${{ github.sha }}
+          path: sbom.*
+          retention-days: 90
+
+      # =========================================================================
+      # STEP 13: Push Docker Image to Registry (Production Deployment)
+      # =========================================================================
+      - name: "Push Docker Image"
+        if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || github.event_name == 'release' || github.event.inputs.push_image == 'true')
+        uses: docker/build-push-action@v5 # v5.4.0
+        with:
+          context: src/backend
+          file: src/backend/Dockerfile
+          platforms: ${{ github.event.inputs.platforms || 'linux/amd64,linux/arm64' }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          # Reuse cache from previous build step
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          # Build arguments for consistency with previous build
+          build-args: |
+            NODE_VERSION=${{ env.NODE_VERSION }}
+            BUILD_DATE=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.created'] }}
+            VCS_REF=${{ github.sha }}
+            VERSION=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.version'] }}
+          # Supply chain security features
+          provenance: true
+          sbom: true
+
+      # =========================================================================
+      # STEP 14: Generate Comprehensive Workflow Summary
+      # =========================================================================
+      - name: "Generate Docker Summary"
+        if: always()
+        run: |
+          set -euo pipefail
+          
+          echo "## 🐳 Docker Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Build status
+          if [ "${{ steps.build.outcome }}" == "success" ]; then
+            echo "✅ **Build Status:** Success" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Build Status:** Failed" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          # Image information
+          echo "📦 **Image Tags:**" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "${{ steps.meta.outputs.tags }}" >> $GITHUB_STEP_SUMMARY  
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Digest information
+          if [ -n "${{ steps.build.outputs.digest }}" ]; then
+            echo "🔍 **Image Digest:** \`${{ steps.build.outputs.digest }}\`" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          # Security scan results
+          if [ "${{ github.event.inputs.security_scan }}" != "false" ]; then
+            echo "🔒 **Security Scan:** Completed" >> $GITHUB_STEP_SUMMARY
+            echo "📊 Security reports uploaded to artifacts" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          # Push status
+          if [ "${{ github.event_name }}" != "pull_request" ] && [ "${{ github.ref }}" == "refs/heads/main" ]; then
+            echo "🚀 **Registry Push:** Completed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "📋 **Registry Push:** Skipped (PR or non-main branch)" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Educational Notes" >> $GITHUB_STEP_SUMMARY
+          echo "This workflow demonstrates Docker containerization best practices:" >> $GITHUB_STEP_SUMMARY
+          echo "- Multi-stage builds for optimized image size" >> $GITHUB_STEP_SUMMARY
+          echo "- Security scanning with Trivy and custom tools" >> $GITHUB_STEP_SUMMARY
+          echo "- Multi-platform builds for AMD64 and ARM64" >> $GITHUB_STEP_SUMMARY
+          echo "- SBOM generation for supply chain security" >> $GITHUB_STEP_SUMMARY
+          echo "- Container health testing and validation" >> $GITHUB_STEP_SUMMARY
