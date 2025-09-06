@@ -1,0 +1,412 @@
+# ==============================================================================
+# Node.js Tutorial Application - Docker Compose Base Configuration
+# ==============================================================================
+# Base Docker Compose orchestration configuration for the Node.js tutorial application
+# that provides balanced deployment suitable for staging, CI/CD environments, and 
+# educational demonstrations. Implements a simplified multi-service architecture with 
+# Express.js 5.1.0, Node.js 22.x LTS, reverse proxy configuration, and basic monitoring 
+# while maintaining educational clarity and serving as a foundation for development and 
+# production extensions.
+#
+# Architecture Features:
+# - Multi-service orchestration with application, reverse proxy, and cache layers
+# - Network segmentation with frontend and backend tiers for security
+# - Health checks and service dependencies for robust deployment
+# - Persistent volumes for logs and cache data
+# - Resource management and scaling configuration
+# - Environment variable configuration for flexible deployment
+#
+# Educational Value:
+# - Demonstrates complete containerized web application stack
+# - Shows fundamental Docker Compose orchestration patterns
+# - Illustrates service communication and networking concepts
+# - Provides foundation for development and production extensions
+#
+# Compatible with: Docker Compose v3.8, Node.js 22.x LTS, Express.js 5.1.0
+# ==============================================================================
+
+version: '3.8'
+
+# ==============================================================================
+# SERVICES CONFIGURATION
+# ==============================================================================
+
+services:
+
+  # ============================================================================
+  # Node.js Tutorial Application Service
+  # ============================================================================
+  # Main application service running the Node.js tutorial with Express.js 5.1.0
+  # Implements health monitoring, resource management, and balanced configuration
+  # suitable for staging environments and educational demonstrations
+  nodejs-tutorial-app:
+    # Build configuration using multi-stage production Dockerfile
+    build:
+      context: ../../src/backend
+      dockerfile: Dockerfile
+      target: production
+      args:
+        NODE_VERSION: 22
+        BUILD_DATE: "${BUILD_DATE:-$(date -u +'%Y-%m-%dT%H:%M:%SZ')}"
+        VERSION: "${VERSION:-1.0.0}"
+        ENVIRONMENT: staging
+    
+    # Container image and naming configuration
+    image: nodejs-tutorial:${VERSION:-latest}
+    container_name: ${COMPOSE_PROJECT_NAME:-nodejs-tutorial}_app
+    
+    # Restart policy for service reliability
+    restart: unless-stopped
+    
+    # Deploy configuration for scaling and resource management
+    deploy:
+      replicas: ${APPLICATION_REPLICAS:-2}
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1.0'
+        reservations:
+          memory: 256M
+          cpus: '0.5'
+    
+    # Production environment configuration optimized for staging
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      HOST: 0.0.0.0
+      LOG_LEVEL: info
+      SERVICE_NAME: nodejs-tutorial
+      SERVICE_VERSION: ${VERSION:-1.0.0}
+      REDIS_URL: redis://redis:6379
+      HEALTH_CHECK_TIMEOUT: 5000
+      TRUST_PROXY: 1
+      TIMEOUT: 30000
+      HELMET_ENABLED: true
+      COMPRESSION_ENABLED: true
+      ENABLE_METRICS: true
+    
+    # Load environment configuration from example template
+    env_file:
+      - ../../src/backend/.env.example
+    
+    # Container health check using built-in health endpoint
+    healthcheck:
+      test: 
+        - CMD
+        - node
+        - -e
+        - |
+          const http=require('http');
+          const options={
+            host:'0.0.0.0',
+            port:3000,
+            path:'/health',
+            timeout:3000
+          };
+          const req=http.request(options,(r)=>{
+            process.exit(r.statusCode===200?0:1)
+          });
+          req.on('error',()=>process.exit(1));
+          req.setTimeout(3000,()=>{req.destroy();process.exit(1)});
+          req.end();
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    
+    # Structured logging configuration with rotation
+    logging:
+      driver: json-file
+      options:
+        max-size: 20m
+        max-file: '5'
+        compress: 'true'
+    
+    # Network connectivity for frontend/backend separation
+    networks:
+      - nodejs-tutorial-frontend
+      - nodejs-tutorial-backend
+    
+    # Persistent volume for application logs
+    volumes:
+      - app-logs:/usr/src/app/logs:rw
+    
+    # Container labels for management and identification
+    labels:
+      app: nodejs-tutorial
+      service: application
+      version: ${VERSION:-1.0.0}
+      environment: staging
+      maintainer: nodejs-tutorial-team
+    
+    # Service dependency configuration
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  # ============================================================================
+  # Nginx Reverse Proxy Service
+  # ============================================================================
+  # Nginx reverse proxy for load balancing and HTTP routing to Node.js application
+  # instances with health checking and traffic management
+  nginx:
+    # Official Nginx Alpine image for minimal footprint and security
+    image: nginx:1.24-alpine
+    container_name: ${COMPOSE_PROJECT_NAME:-nodejs-tutorial}_nginx
+    
+    # Restart policy for high availability
+    restart: unless-stopped
+    
+    # Port mapping for HTTP and HTTPS traffic
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+    
+    # Nginx environment configuration
+    environment:
+      NGINX_ENVSUBST_TEMPLATE_SUFFIX: .template
+      UPSTREAM_SERVERS: nodejs-tutorial-app:3000
+      SERVER_NAME: ${SERVER_NAME:-localhost}
+    
+    # Persistent volume for nginx access logs
+    volumes:
+      - nginx-logs:/var/log/nginx:rw
+    
+    # Health check using wget for nginx availability
+    healthcheck:
+      test:
+        - CMD
+        - wget
+        - --no-verbose
+        - --tries=1
+        - --spider
+        - http://localhost:80/health
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    
+    # Log management with rotation
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '3'
+    
+    # Network connectivity for both frontend and backend
+    networks:
+      - nodejs-tutorial-frontend
+      - nodejs-tutorial-backend
+    
+    # Container labels for operational management
+    labels:
+      app: nodejs-tutorial
+      service: reverse-proxy
+      version: ${VERSION:-1.0.0}
+      environment: staging
+    
+    # Dependency on healthy application service
+    depends_on:
+      nodejs-tutorial-app:
+        condition: service_healthy
+
+  # ============================================================================
+  # Redis Cache Service
+  # ============================================================================
+  # Redis cache for session storage and application caching with basic persistence
+  # and memory management optimized for staging environments
+  redis:
+    # Official Redis Alpine image for minimal footprint
+    image: redis:7-alpine
+    container_name: ${COMPOSE_PROJECT_NAME:-nodejs-tutorial}_redis
+    
+    # Restart policy for data persistence
+    restart: unless-stopped
+    
+    # Redis server configuration with persistence and memory management
+    command:
+      - redis-server
+      - --save
+      - '60'
+      - '1000'
+      - --loglevel
+      - notice
+      - --maxmemory
+      - ${REDIS_MAXMEMORY:-128mb}
+      - --maxmemory-policy
+      - allkeys-lru
+    
+    # Redis environment configuration
+    environment:
+      REDIS_MAXMEMORY: ${REDIS_MAXMEMORY:-128mb}
+    
+    # Persistent storage for Redis data
+    volumes:
+      - redis-data:/data:rw
+    
+    # Health check using Redis CLI ping command
+    healthcheck:
+      test:
+        - CMD
+        - redis-cli
+        - ping
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    
+    # Minimal logging for cache service
+    logging:
+      driver: json-file
+      options:
+        max-size: 5m
+        max-file: '2'
+    
+    # Backend network connectivity only for security
+    networks:
+      - nodejs-tutorial-backend
+    
+    # Container labels for management
+    labels:
+      app: nodejs-tutorial
+      service: cache
+      version: ${VERSION:-1.0.0}
+      environment: staging
+
+# ==============================================================================
+# NETWORKS CONFIGURATION
+# ==============================================================================
+# Custom bridge networks for frontend and backend service separation
+# providing network isolation and controlled communication paths
+
+networks:
+  
+  # Frontend network for client-facing services
+  nodejs-tutorial-frontend:
+    name: ${COMPOSE_PROJECT_NAME:-nodejs-tutorial}_frontend
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.29.1.0/24
+          gateway: 172.29.1.1
+    labels:
+      app: nodejs-tutorial
+      tier: frontend
+      environment: staging
+  
+  # Backend network for internal service communication
+  nodejs-tutorial-backend:
+    name: ${COMPOSE_PROJECT_NAME:-nodejs-tutorial}_backend
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.29.2.0/24
+          gateway: 172.29.2.1
+    labels:
+      app: nodejs-tutorial
+      tier: backend
+      environment: staging
+
+# ==============================================================================
+# VOLUMES CONFIGURATION
+# ==============================================================================
+# Named volumes for persistent data storage across container restarts
+# with proper labeling for operational management
+
+volumes:
+  
+  # Application logs volume for debugging and monitoring
+  app-logs:
+    name: ${COMPOSE_PROJECT_NAME:-nodejs-tutorial}_app_logs
+    driver: local
+    labels:
+      app: nodejs-tutorial
+      service: application
+      purpose: application-logs
+      environment: staging
+  
+  # Nginx logs volume for access and error log persistence
+  nginx-logs:
+    name: ${COMPOSE_PROJECT_NAME:-nodejs-tutorial}_nginx_logs
+    driver: local
+    labels:
+      app: nodejs-tutorial
+      service: reverse-proxy
+      purpose: proxy-logs
+      environment: staging
+  
+  # Redis data volume for cache persistence across restarts
+  redis-data:
+    name: ${COMPOSE_PROJECT_NAME:-nodejs-tutorial}_redis_data
+    driver: local
+    labels:
+      app: nodejs-tutorial
+      service: cache
+      purpose: cache-storage
+      environment: staging
+
+# ==============================================================================
+# OPERATIONAL INSTRUCTIONS
+# ==============================================================================
+#
+# STARTUP:
+# export VERSION=${VERSION:-latest}
+# export COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME:-nodejs-tutorial}
+# docker-compose up -d
+# docker-compose ps --filter health=healthy
+# curl -f http://localhost/hello
+#
+# SCALING:
+# docker-compose up -d --scale nodejs-tutorial-app=4
+# docker-compose ps nodejs-tutorial-app
+#
+# MONITORING:
+# docker-compose ps
+# docker-compose logs -f nodejs-tutorial-app
+# docker-compose logs -f --timestamps
+#
+# MAINTENANCE:
+# docker-compose pull
+# docker-compose up -d --remove-orphans
+# docker system prune -f
+#
+# ==============================================================================
+# ENVIRONMENT VARIABLES
+# ==============================================================================
+#
+# COMPOSE_PROJECT_NAME: Project name for resource naming (default: nodejs-tutorial)
+# VERSION: Application version tag (default: latest)
+# HTTP_PORT: Host HTTP port mapping (default: 80)
+# HTTPS_PORT: Host HTTPS port mapping (default: 443)
+# SERVER_NAME: Nginx server name (default: localhost)
+# APPLICATION_REPLICAS: Number of app replicas (default: 2)
+# REDIS_MAXMEMORY: Redis memory limit (default: 128mb)
+# BUILD_DATE: Build timestamp (default: current UTC time)
+#
+# ==============================================================================
+# EDUCATIONAL VALUE
+# ==============================================================================
+#
+# ORCHESTRATION CONCEPTS:
+# - Multi-service containerized application architecture
+# - Service dependency management and health checking
+# - Container networking and inter-service communication
+# - Volume management for data persistence and log collection
+# - Environment-based configuration and deployment flexibility
+# - Resource management and scaling in containerized environments
+# - Load balancing and reverse proxy integration patterns
+# - Service discovery and container orchestration fundamentals
+#
+# PRODUCTION READINESS:
+# - Health checking and service monitoring patterns
+# - Resource limits and reservations for stability
+# - Network segmentation and security considerations
+# - Persistent storage for important application data
+# - Logging and operational visibility implementation
+# - Service dependency and startup order management
+# - Graceful service shutdown and restart procedures
+# - Configuration management through environment variables
+#
+# ==============================================================================
