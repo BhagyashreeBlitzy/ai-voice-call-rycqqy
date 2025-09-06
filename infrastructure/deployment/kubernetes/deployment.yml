@@ -1,0 +1,351 @@
+# =============================================================================
+# Kubernetes Deployment Resource for Node.js Tutorial Application
+# =============================================================================
+# Production-ready Kubernetes Deployment YAML configuration for the Node.js tutorial application
+# that demonstrates Express.js 5.1.0 HTTP server fundamentals with comprehensive container
+# orchestration, security hardening, health monitoring, and operational best practices.
+#
+# Features:
+# - Multi-replica deployment (3 replicas) with rolling update strategy for zero-downtime deployments
+# - Express.js 5.1.0 and Node.js 22.11.0 LTS container orchestration with production optimizations
+# - Comprehensive health checks (liveness, readiness, startup probes) for reliable container health monitoring
+# - Security context implementation with non-root execution, read-only filesystem, and capability dropping
+# - Resource management with CPU/memory requests and limits for capacity planning and performance isolation
+# - High availability configuration with pod anti-affinity rules for node distribution
+# - Volume mounts for temporary storage with security-compliant read-only root filesystem
+# - Environment variable configuration for Node.js production optimization and Express.js performance
+# - Container image security with Alpine Linux base and minimal attack surface
+# - Kubernetes standard labeling and annotations for operational visibility and educational clarity
+# - Self-contained configuration eliminating circular dependencies with service coordination
+# - Production monitoring integration with Prometheus-compatible annotations
+# - Educational metadata and learning objective annotations for tutorial documentation
+#
+# Compatible with:
+# - Kubernetes 1.25+ with apps/v1 API
+# - Express.js 5.1.0 with enhanced async/await support and automatic promise error handling
+# - Node.js 22.11.0 LTS with Active LTS support extending into late 2025
+# - Container runtime: containerd 1.6+ with security isolation
+# - Docker image: nodejs-tutorial:1.0.0 with multi-stage production build
+#
+# Architecture:
+# - Event-driven Node.js application with Express.js middleware orchestration
+# - Stateless design enabling horizontal scaling and high availability
+# - Container orchestration following 12-factor app methodology
+# - Production-ready security policies with restricted pod security standards
+# - Self-defined labeling strategy for service integration without circular dependencies
+#
+# @author Node.js Tutorial Team
+# @version 1.0.0
+# @educational_focus Kubernetes deployment patterns, container orchestration, production operations
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  # Deployment resource identification and namespace assignment
+  name: nodejs-tutorial-app
+  namespace: nodejs-tutorial
+  
+  # Comprehensive Kubernetes recommended labels for resource identification and management
+  labels:
+    # Core Kubernetes recommended labels for consistent resource identification
+    app.kubernetes.io/name: nodejs-tutorial
+    app.kubernetes.io/instance: hello-world
+    app.kubernetes.io/version: "1.0.0"
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/part-of: nodejs-tutorial-app
+    app.kubernetes.io/managed-by: kubectl
+    app.kubernetes.io/created-by: infrastructure-team
+    
+    # Environment and deployment classification labels
+    environment: production
+    framework: express
+    language: nodejs
+    tier: backend
+    
+    # Educational and tutorial-specific metadata labels
+    tutorial.example.com/purpose: educational
+    tutorial.example.com/level: beginner
+    tutorial.example.com/framework: express
+    tutorial.example.com/version: "5.1.0"
+    tutorial.example.com/node-version: "22"
+    
+    # Deployment strategy and operational pattern labels
+    deployment.example.com/pattern: microservice
+    deployment.example.com/strategy: rolling-update
+  
+  # Comprehensive annotations for operational documentation and system integration
+  annotations:
+    # Deployment description and educational context
+    description: "Kubernetes deployment for Node.js tutorial application demonstrating Express.js 5.1.0 HTTP server fundamentals"
+    
+    # Educational documentation and learning resources
+    tutorial.example.com/documentation: "https://github.com/nodejs-tutorial/hello-world/blob/main/README.md"
+    tutorial.example.com/endpoints: "/hello,/health,/livez,/readyz"
+    tutorial.example.com/concepts: "kubernetes-deployment,container-orchestration,rolling-updates"
+    tutorial.example.com/learning-objectives: "kubernetes-pod-management,container-scaling,deployment-strategies"
+    
+    # Kubernetes operational metadata
+    deployment.kubernetes.io/revision: "1"
+    kubectl.kubernetes.io/last-applied-configuration: ""
+    
+    # Container security annotations for enhanced security posture
+    container.apparmor.security.beta.kubernetes.io/nodejs-tutorial-container: "runtime/default"
+    seccomp.security.alpha.kubernetes.io/pod: "runtime/default"
+    
+    # Monitoring and observability integration annotations
+    monitoring.example.com/scrape: "true"
+    monitoring.example.com/port: "3000"
+    monitoring.example.com/path: "/health"
+    
+    # Security compliance and hardening annotations
+    security.example.com/pod-security-standard: "restricted"
+    security.example.com/non-root: "true"
+    security.example.com/read-only-root: "true"
+    
+    # Performance and resource management annotations
+    performance.example.com/cpu-request: "100m"
+    performance.example.com/memory-request: "128Mi"
+    performance.example.com/cpu-limit: "500m"
+    performance.example.com/memory-limit: "512Mi"
+
+spec:
+  # High availability configuration with 3 replicas for fault tolerance
+  replicas: 3
+  
+  # Rolling update strategy for zero-downtime deployments
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      # Ensure service availability during updates by limiting unavailable pods
+      maxUnavailable: 1
+      # Allow one additional pod during rolling update for smooth transition
+      maxSurge: 1
+  
+  # Pod selector configuration using self-defined standard labels
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: nodejs-tutorial
+      app.kubernetes.io/instance: hello-world
+      app.kubernetes.io/component: backend
+  
+  # Pod template specification with comprehensive configuration
+  template:
+    metadata:
+      # Pod template labels consistent with deployment selector
+      labels:
+        app.kubernetes.io/name: nodejs-tutorial
+        app.kubernetes.io/instance: hello-world
+        app.kubernetes.io/version: "1.0.0"
+        app.kubernetes.io/component: backend
+        app.kubernetes.io/part-of: nodejs-tutorial-app
+        environment: production
+        framework: express
+        language: nodejs
+        tier: backend
+        tutorial.example.com/purpose: educational
+      
+      # Pod template annotations for monitoring and operational metadata
+      annotations:
+        description: "Pod template for Node.js tutorial application with Express.js 5.1.0 HTTP server"
+        tutorial.example.com/concepts: "pod-template,container-spec,health-checks"
+        security.example.com/pod-security-standard: "restricted"
+        monitoring.example.com/scrape: "true"
+    
+    spec:
+      # Pod-level security context with non-root execution and security hardening
+      securityContext:
+        # Enforce non-root container execution for security
+        runAsNonRoot: true
+        # Run as node user (uid 1000) for consistent security
+        runAsUser: 1000
+        # Set primary group to node group (gid 1000)
+        runAsGroup: 1000
+        # Set file system group ownership for volume permissions
+        fsGroup: 1000
+        # Enable RuntimeDefault seccomp profile for kernel syscall filtering
+        seccompProfile:
+          type: RuntimeDefault
+        # No supplemental groups required for minimal attack surface
+        supplementalGroups: []
+      
+      # Container specification with Node.js tutorial application
+      containers:
+      - name: nodejs-tutorial-container
+        # Container image with Node.js 22.x LTS Alpine and Express.js 5.1.0
+        image: nodejs-tutorial:1.0.0
+        # Pull policy optimized for production deployment
+        imagePullPolicy: IfNotPresent
+        
+        # Container port configuration for HTTP server
+        ports:
+        - name: http
+          containerPort: 3000
+          protocol: TCP
+        
+        # Environment variables for Node.js production optimization
+        env:
+        # Node.js environment setting for Express.js production optimizations
+        - name: NODE_ENV
+          value: "production"
+        # HTTP server port binding
+        - name: PORT
+          value: "3000"
+        # Host binding for container network interface
+        - name: HOST
+          value: "0.0.0.0"
+        # Production logging level for performance
+        - name: LOG_LEVEL
+          value: "info"
+        # Node.js memory management optimization
+        - name: NODE_OPTIONS
+          value: "--max-old-space-size=512"
+        
+        # Resource management with requests and limits for capacity planning
+        resources:
+          requests:
+            # Guaranteed CPU allocation for consistent performance
+            cpu: 100m
+            # Guaranteed memory allocation for application startup
+            memory: 128Mi
+            # Temporary storage allocation for application cache and logs
+            ephemeral-storage: 100Mi
+          limits:
+            # Maximum CPU usage to prevent resource contention
+            cpu: 500m
+            # Maximum memory usage aligned with Node.js heap settings
+            memory: 512Mi
+            # Maximum temporary storage to prevent disk space exhaustion
+            ephemeral-storage: 500Mi
+        
+        # Liveness probe for automatic container restart on application failure
+        livenessProbe:
+          httpGet:
+            path: /livez
+            port: http
+            scheme: HTTP
+          # Allow application startup time before first check
+          initialDelaySeconds: 30
+          # Check every 30 seconds for regular monitoring
+          periodSeconds: 30
+          # Response timeout to prevent false negatives
+          timeoutSeconds: 5
+          # Single success required to mark as healthy
+          successThreshold: 1
+          # Three consecutive failures trigger container restart
+          failureThreshold: 3
+        
+        # Readiness probe for service endpoint inclusion/exclusion
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: http
+            scheme: HTTP
+          # Quick readiness detection for faster service integration
+          initialDelaySeconds: 5
+          # Frequent checks for responsive load balancing
+          periodSeconds: 10
+          # Quick timeout for responsive traffic management
+          timeoutSeconds: 3
+          # Single success required to mark as ready
+          successThreshold: 1
+          # Three consecutive failures remove from load balancing
+          failureThreshold: 3
+        
+        # Startup probe for application initialization validation
+        startupProbe:
+          httpGet:
+            path: /health
+            port: http
+            scheme: HTTP
+          # Allow time for application loading and dependency initialization
+          initialDelaySeconds: 10
+          # Frequent startup checking for quick detection
+          periodSeconds: 5
+          # Quick timeout for startup validation
+          timeoutSeconds: 3
+          # Single success required to complete startup
+          successThreshold: 1
+          # Six failures (30 seconds total) before restart
+          failureThreshold: 6
+        
+        # Container-level security context with comprehensive hardening
+        securityContext:
+          # Prevent privilege escalation attacks
+          allowPrivilegeEscalation: false
+          # Read-only root filesystem for immutable container security
+          readOnlyRootFilesystem: true
+          # Enforce non-root container execution
+          runAsNonRoot: true
+          # Explicit user ID for security consistency
+          runAsUser: 1000
+          # Explicit group ID for file permissions
+          runAsGroup: 1000
+          # Drop all Linux capabilities for minimal attack surface
+          capabilities:
+            drop:
+            - ALL
+          # RuntimeDefault seccomp profile for enhanced security
+          seccompProfile:
+            type: RuntimeDefault
+        
+        # Volume mounts for writable storage with read-only root filesystem
+        volumeMounts:
+        # Temporary directory mount for application runtime requirements
+        - name: tmp-volume
+          mountPath: /tmp
+          readOnly: false
+        # Application cache directory for Node.js performance optimization
+        - name: cache-volume
+          mountPath: /usr/src/app/.cache
+          readOnly: false
+      
+      # Volume definitions for container storage requirements
+      volumes:
+      # Memory-backed temporary storage for performance and security
+      - name: tmp-volume
+        emptyDir:
+          # In-memory storage for temporary files
+          medium: Memory
+          # Size limit for memory usage control
+          sizeLimit: 50Mi
+      # Disk-backed cache storage for application optimization
+      - name: cache-volume
+        emptyDir:
+          # Size limit for cache storage management
+          sizeLimit: 100Mi
+      
+      # Pod restart policy for automatic recovery
+      restartPolicy: Always
+      
+      # Graceful termination period for clean shutdown
+      terminationGracePeriodSeconds: 30
+      
+      # DNS policy for cluster service discovery
+      dnsPolicy: ClusterFirst
+      
+      # Service account configuration with minimal permissions
+      serviceAccountName: default
+      # Disable service account token auto-mounting for security
+      automountServiceAccountToken: false
+      
+      # Node selection configuration (empty for default scheduling)
+      nodeSelector: {}
+      
+      # Pod tolerations for node conditions (empty for default behavior)
+      tolerations: []
+      
+      # Pod affinity and anti-affinity rules for high availability
+      affinity:
+        # Pod anti-affinity for distributing replicas across nodes
+        podAntiAffinity:
+          # Preferred scheduling to avoid co-location when possible
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              # Target pods with same application labels
+              labelSelector:
+                matchLabels:
+                  app.kubernetes.io/name: nodejs-tutorial
+                  app.kubernetes.io/component: backend
+              # Distribute across different nodes for fault tolerance
+              topologyKey: kubernetes.io/hostname
