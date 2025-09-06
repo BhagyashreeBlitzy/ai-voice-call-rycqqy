@@ -1,0 +1,1255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Error page for Node.js tutorial application providing user-friendly error information and recovery guidance">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Error - Node.js Tutorial Application</title>
+    
+    <!-- Bootstrap CSS CDN for responsive layout and component styling -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
+    
+    <!-- Font Awesome CDN for error icons and visual indicators -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous">
+    
+    <!-- Custom inline CSS for error page specific styling and accessibility -->
+    <style>
+        :root {
+            --primary-color: #0066cc;
+            --danger-color: #dc3545;
+            --warning-color: #fd7e14;
+            --success-color: #198754;
+            --info-color: #0dcaf0;
+            --dark-color: #212529;
+            --light-color: #f8f9fa;
+            --border-radius: 0.5rem;
+            --box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+        }
+
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        /* Error hero section styling */
+        .error-hero {
+            background: white;
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+            padding: 3rem;
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+
+        .error-status-404 {
+            color: var(--info-color);
+            border-left: 5px solid var(--info-color);
+        }
+
+        .error-status-500 {
+            color: var(--danger-color);
+            border-left: 5px solid var(--danger-color);
+        }
+
+        .error-status-405 {
+            color: var(--warning-color);
+            border-left: 5px solid var(--warning-color);
+        }
+
+        .error-details {
+            background: white;
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+            padding: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .troubleshooting-steps {
+            background: white;
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+            padding: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .troubleshooting-steps ol {
+            padding-left: 1.5rem;
+        }
+
+        .troubleshooting-steps li {
+            margin-bottom: 0.75rem;
+        }
+
+        .retry-button {
+            background: linear-gradient(135deg, var(--primary-color), #0052a3);
+            border: none;
+            border-radius: var(--border-radius);
+            color: white;
+            font-weight: 600;
+            padding: 1rem 2rem;
+            transition: all 0.3s ease;
+            box-shadow: var(--box-shadow);
+        }
+
+        .retry-button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 0.75rem 1.5rem rgba(0, 0, 0, 0.2);
+        }
+
+        .retry-button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .system-status {
+            display: inline-block;
+            padding: 0.5rem 1rem;
+            border-radius: 2rem;
+            font-size: 0.875rem;
+            font-weight: 600;
+            margin: 0.25rem;
+        }
+
+        .system-status.online {
+            background: rgba(25, 135, 84, 0.1);
+            color: var(--success-color);
+            border: 1px solid var(--success-color);
+        }
+
+        .system-status.maintenance {
+            background: rgba(253, 126, 20, 0.1);
+            color: var(--warning-color);
+            border: 1px solid var(--warning-color);
+        }
+
+        .system-status.error {
+            background: rgba(220, 53, 69, 0.1);
+            color: var(--danger-color);
+            border: 1px solid var(--danger-color);
+        }
+
+        .error-timestamp {
+            font-family: 'Courier New', monospace;
+            font-size: 0.875rem;
+            color: #6c757d;
+            background: #f8f9fa;
+            padding: 0.5rem;
+            border-radius: 0.25rem;
+            border: 1px solid #dee2e6;
+        }
+
+        .loading-state {
+            opacity: 0.7;
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 1rem;
+            height: 1rem;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid var(--primary-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* High contrast and accessibility support */
+        .accessibility-enhanced {
+            font-size: 1.1rem;
+            line-height: 1.6;
+        }
+
+        @media (prefers-contrast: high) {
+            .accessibility-enhanced {
+                background: white;
+                color: black;
+                border: 2px solid black;
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            * {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+
+        /* Mobile responsive adjustments */
+        @media (max-width: 768px) {
+            .error-hero {
+                padding: 2rem 1rem;
+            }
+            
+            .error-details,
+            .troubleshooting-steps {
+                padding: 1.5rem;
+            }
+            
+            .retry-button {
+                width: 100%;
+                margin-bottom: 1rem;
+            }
+        }
+
+        /* Focus indicators for keyboard navigation */
+        .btn:focus,
+        button:focus,
+        a:focus,
+        input:focus {
+            outline: 3px solid var(--primary-color);
+            outline-offset: 2px;
+        }
+
+        /* Error icon animations */
+        .error-icon {
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+    </style>
+</head>
+<body>
+    <!-- Application header with branding and navigation -->
+    <header class="container-fluid py-3">
+        <div class="row">
+            <div class="col">
+                <nav class="navbar navbar-light">
+                    <a class="navbar-brand text-white" href="/" aria-label="Return to Node.js Tutorial Application homepage">
+                        <i class="fas fa-home me-2"></i>
+                        Node.js Tutorial Application
+                    </a>
+                </nav>
+            </div>
+        </div>
+    </header>
+
+    <main class="container py-4" role="main">
+        <!-- Error hero section with large error display -->
+        <section class="error-hero" id="error-hero-section" role="banner">
+            <div class="row">
+                <div class="col-md-2 d-flex justify-content-center align-items-center">
+                    <i id="error-icon" class="fas fa-exclamation-triangle error-icon" style="font-size: 4rem;" aria-hidden="true"></i>
+                </div>
+                <div class="col-md-10">
+                    <h1 id="error-status-code" class="display-1 fw-bold mb-2">404</h1>
+                    <h2 id="error-primary-message" class="h3 mb-0">Page Not Found</h2>
+                </div>
+            </div>
+        </section>
+
+        <!-- Detailed error information section -->
+        <section class="error-details" role="complementary" aria-labelledby="error-details-heading">
+            <h3 id="error-details-heading" class="h4 mb-3">
+                <i class="fas fa-info-circle me-2" aria-hidden="true"></i>
+                What Happened?
+            </h3>
+            <p id="error-description" class="mb-3">
+                The page you requested could not be found on our server. This might be because the URL was typed incorrectly, 
+                the page has been moved, or the resource is temporarily unavailable.
+            </p>
+            
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title">
+                                <i class="fas fa-clock me-2" aria-hidden="true"></i>
+                                When
+                            </h5>
+                            <p id="error-timestamp" class="error-timestamp mb-0">
+                                <time datetime="2024-01-01T00:00:00Z" id="error-time">
+                                    January 1, 2024 at 12:00:00 AM UTC
+                                </time>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title">
+                                <i class="fas fa-fingerprint me-2" aria-hidden="true"></i>
+                                Reference ID
+                            </h5>
+                            <p id="error-request-id" class="error-timestamp mb-0">
+                                <code id="request-id-value">REQ-000000-000000</code>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Troubleshooting guidance section -->
+        <section class="troubleshooting-steps" role="complementary" aria-labelledby="troubleshooting-heading">
+            <h3 id="troubleshooting-heading" class="h4 mb-3">
+                <i class="fas fa-tools me-2" aria-hidden="true"></i>
+                What Can You Do?
+            </h3>
+            <div id="troubleshooting-content">
+                <ol id="troubleshooting-list">
+                    <li><strong>Check the URL:</strong> Make sure the web address is spelled correctly and complete.</li>
+                    <li><strong>Go back:</strong> Use your browser's back button to return to the previous page.</li>
+                    <li><strong>Visit the homepage:</strong> <a href="/" class="text-decoration-none">Return to our main page</a> and navigate from there.</li>
+                    <li><strong>Try again later:</strong> If you believe this is a temporary issue, please try again in a few minutes.</li>
+                </ol>
+            </div>
+        </section>
+
+        <!-- System status information -->
+        <section class="error-details" role="complementary" aria-labelledby="system-status-heading">
+            <h3 id="system-status-heading" class="h4 mb-3">
+                <i class="fas fa-server me-2" aria-hidden="true"></i>
+                System Status
+            </h3>
+            <div class="row" id="system-status-content">
+                <div class="col-md-4">
+                    <p><strong>Application:</strong> 
+                        <span class="system-status online" id="app-status">Online</span>
+                    </p>
+                </div>
+                <div class="col-md-4">
+                    <p><strong>Server:</strong> 
+                        <span class="system-status online" id="server-status">Healthy</span>
+                    </p>
+                </div>
+                <div class="col-md-4">
+                    <p><strong>Environment:</strong> 
+                        <span id="environment-info">Production</span>
+                    </p>
+                </div>
+            </div>
+            <div class="row mt-2">
+                <div class="col-md-6">
+                    <p class="mb-0"><strong>Node.js Version:</strong> <span id="node-version">v22.11.0</span></p>
+                </div>
+                <div class="col-md-6">
+                    <p class="mb-0"><strong>Last Health Check:</strong> 
+                        <time id="last-health-check" class="text-muted">
+                            Just now
+                        </time>
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- User actions section with retry and reporting -->
+        <section class="error-details" role="complementary" aria-labelledby="user-actions-heading">
+            <h3 id="user-actions-heading" class="h4 mb-3">
+                <i class="fas fa-user-cog me-2" aria-hidden="true"></i>
+                Need More Help?
+            </h3>
+            
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <button id="retry-button" class="retry-button btn" type="button" aria-describedby="retry-description">
+                        <i class="fas fa-redo-alt me-2" aria-hidden="true"></i>
+                        <span id="retry-text">Try Again</span>
+                        <span id="retry-spinner" class="loading-spinner ms-2" style="display: none;" aria-hidden="true"></span>
+                    </button>
+                    <p id="retry-description" class="text-muted mt-2 mb-0">
+                        Retry attempts: <span id="retry-counter">0</span>/3
+                    </p>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <button id="report-error-button" class="btn btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#error-report-form" aria-expanded="false" aria-controls="error-report-form">
+                        <i class="fas fa-bug me-2" aria-hidden="true"></i>
+                        Report This Issue
+                    </button>
+                </div>
+            </div>
+
+            <!-- Error reporting form (collapsible) -->
+            <div class="collapse mt-3" id="error-report-form">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-envelope me-2" aria-hidden="true"></i>
+                            Report Error Details
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <form id="error-report" novalidate>
+                            <div class="mb-3">
+                                <label for="user-description" class="form-label">
+                                    What were you trying to do when this error occurred?
+                                </label>
+                                <textarea id="user-description" class="form-control" rows="3" placeholder="Please describe what you were trying to do..." maxlength="500" aria-describedby="description-help"></textarea>
+                                <div id="description-help" class="form-text">
+                                    Optional: Help us understand the context (max 500 characters)
+                                </div>
+                            </div>
+                            <div class="d-flex gap-2">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-paper-plane me-2" aria-hidden="true"></i>
+                                    Send Report
+                                </button>
+                                <button type="button" class="btn btn-secondary" data-bs-toggle="collapse" data-bs-target="#error-report-form">
+                                    Cancel
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Support information section -->
+        <section class="error-details" role="complementary" aria-labelledby="support-heading">
+            <h3 id="support-heading" class="h4 mb-3">
+                <i class="fas fa-life-ring me-2" aria-hidden="true"></i>
+                Additional Resources
+            </h3>
+            <div class="row">
+                <div class="col-md-6">
+                    <h5><i class="fas fa-book me-2" aria-hidden="true"></i>Documentation</h5>
+                    <p><a href="/docs" class="text-decoration-none">View API Documentation</a></p>
+                    <p><a href="/tutorial" class="text-decoration-none">Node.js Tutorial Guide</a></p>
+                </div>
+                <div class="col-md-6">
+                    <h5><i class="fas fa-envelope me-2" aria-hidden="true"></i>Contact Support</h5>
+                    <p>Email: <a href="mailto:support@example.com" class="text-decoration-none">support@example.com</a></p>
+                    <p>Response Time: Typically within 24 hours</p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Application footer -->
+    <footer class="container-fluid py-4 text-center text-white-50">
+        <div class="row">
+            <div class="col">
+                <p class="mb-2">Node.js Tutorial Application v1.0.0</p>
+                <p class="mb-0">
+                    <a href="/privacy" class="text-white-50 text-decoration-none me-3">Privacy Policy</a>
+                    <a href="/terms" class="text-white-50 text-decoration-none">Terms of Service</a>
+                </p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Bootstrap JavaScript CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" crossorigin="anonymous"></script>
+
+    <!-- Error page JavaScript functionality -->
+    <script>
+        // Global variables for error page state management
+        let errorData = { 
+            status: null, 
+            message: '', 
+            details: '', 
+            timestamp: null, 
+            requestId: '' 
+        };
+
+        let systemInfo = { 
+            nodeVersion: '', 
+            environment: '', 
+            serverStatus: '' 
+        };
+
+        let retryAttempts = 0;
+        const MAX_RETRY_ATTEMPTS = 3;
+
+        /**
+         * Initializes the error page on load with error data, system information, and user interface event listeners
+         * Sets page title, extracts error data, initializes DOM elements, and configures accessibility features
+         */
+        function initializeErrorPage() {
+            try {
+                // Extract error information from URL parameters or server-side template variables
+                const urlParams = new URLSearchParams(window.location.search);
+                errorData.status = urlParams.get('status') || getMetaContent('error-status') || 404;
+                errorData.message = urlParams.get('message') || getMetaContent('error-message') || 'An error occurred';
+                errorData.timestamp = urlParams.get('timestamp') || new Date().toISOString();
+                errorData.requestId = urlParams.get('requestId') || generateRequestId();
+
+                // Set page title based on error status
+                document.title = `Error ${errorData.status} - Node.js Tutorial Application`;
+
+                // Initialize system information
+                systemInfo.nodeVersion = getMetaContent('node-version') || 'v22.11.0';
+                systemInfo.environment = getMetaContent('environment') || 'production';
+                systemInfo.serverStatus = getMetaContent('server-status') || 'online';
+
+                // Display error information
+                displayErrorInformation(errorData);
+
+                // Render troubleshooting guidance based on error type
+                renderTroubleshootingGuidance(parseInt(errorData.status), getErrorType(errorData.status));
+
+                // Set up retry functionality
+                setupRetryFunctionality();
+
+                // Configure error reporting
+                setupErrorReporting();
+
+                // Display system status
+                renderSystemStatus();
+
+                // Configure accessibility features
+                configureAccessibility();
+
+                // Announce error to screen readers
+                announceErrorToScreenReader();
+
+                console.info('Error page initialized successfully');
+
+            } catch (error) {
+                console.error('Error initializing error page:', error);
+                // Fallback display for initialization failures
+                displayFallbackError();
+            }
+        }
+
+        /**
+         * Displays comprehensive error information including status code, message, and user-friendly explanations
+         * Updates DOM with error information using semantic HTML and ARIA attributes
+         */
+        function displayErrorInformation(errorInfo) {
+            const statusElement = document.getElementById('error-status-code');
+            const messageElement = document.getElementById('error-primary-message');
+            const descriptionElement = document.getElementById('error-description');
+            const timestampElement = document.getElementById('error-time');
+            const requestIdElement = document.getElementById('request-id-value');
+            const heroSection = document.getElementById('error-hero-section');
+            const errorIcon = document.getElementById('error-icon');
+
+            if (statusElement) {
+                statusElement.textContent = errorInfo.status;
+                statusElement.setAttribute('aria-label', `HTTP Status Code ${errorInfo.status}`);
+            }
+
+            if (messageElement) {
+                const friendlyMessage = getFriendlyErrorMessage(errorInfo.status);
+                messageElement.textContent = friendlyMessage;
+                messageElement.setAttribute('aria-label', `Error: ${friendlyMessage}`);
+            }
+
+            if (descriptionElement) {
+                const description = getErrorDescription(errorInfo.status);
+                descriptionElement.textContent = description;
+            }
+
+            if (timestampElement) {
+                const formattedTime = formatTimestamp(errorInfo.timestamp);
+                timestampElement.textContent = formattedTime;
+                timestampElement.setAttribute('datetime', errorInfo.timestamp);
+            }
+
+            if (requestIdElement) {
+                requestIdElement.textContent = errorInfo.requestId;
+            }
+
+            // Apply appropriate styling based on error type
+            if (heroSection) {
+                const errorClass = `error-status-${errorInfo.status}`;
+                heroSection.classList.add(errorClass);
+            }
+
+            // Update error icon based on error type
+            if (errorIcon) {
+                const iconClass = getErrorIcon(errorInfo.status);
+                errorIcon.className = `fas ${iconClass} error-icon`;
+                errorIcon.setAttribute('aria-label', `${getFriendlyErrorMessage(errorInfo.status)} icon`);
+            }
+        }
+
+        /**
+         * Renders contextual troubleshooting steps and recovery suggestions based on the specific error type
+         * Generates user-friendly suggestions and provides specific guidance for different HTTP status codes
+         */
+        function renderTroubleshootingGuidance(statusCode, errorType) {
+            const troubleshootingList = document.getElementById('troubleshooting-list');
+            const troubleshootingContent = document.getElementById('troubleshooting-content');
+            
+            if (!troubleshootingList) return;
+
+            let steps = [];
+
+            switch (statusCode) {
+                case 404:
+                    steps = [
+                        '<strong>Check the URL:</strong> Make sure the web address is spelled correctly and complete.',
+                        '<strong>Navigation suggestions:</strong> Try navigating from our <a href="/" class="text-decoration-none">homepage</a> instead.',
+                        '<strong>Search:</strong> Use our site search to find what you\'re looking for.',
+                        '<strong>Recent changes:</strong> The page may have been moved or renamed recently.'
+                    ];
+                    break;
+                case 405:
+                    steps = [
+                        '<strong>HTTP Method:</strong> The request method used is not allowed for this endpoint.',
+                        '<strong>Supported methods:</strong> This endpoint only supports GET requests.',
+                        '<strong>API documentation:</strong> Check the <a href="/docs" class="text-decoration-none">API documentation</a> for correct usage.',
+                        '<strong>Contact support:</strong> If you believe this is incorrect, please contact our support team.'
+                    ];
+                    break;
+                case 500:
+                    steps = [
+                        '<strong>Server issue:</strong> We\'re experiencing a temporary server problem.',
+                        '<strong>Try again:</strong> Please wait a few minutes and try your request again.',
+                        '<strong>Clear cache:</strong> Try clearing your browser cache and cookies.',
+                        '<strong>Report issue:</strong> If the problem persists, please use the error reporting form below.'
+                    ];
+                    break;
+                default:
+                    steps = [
+                        '<strong>Refresh the page:</strong> Press F5 or Ctrl+R (Cmd+R on Mac) to reload.',
+                        '<strong>Check connection:</strong> Ensure you have a stable internet connection.',
+                        '<strong>Try later:</strong> The issue might be temporary - please try again in a few minutes.',
+                        '<strong>Contact support:</strong> If the problem continues, please reach out to our support team.'
+                    ];
+            }
+
+            troubleshootingList.innerHTML = steps.map(step => `<li>${step}</li>`).join('');
+
+            // Add retry button specific guidance
+            const retryGuidance = document.createElement('div');
+            retryGuidance.className = 'alert alert-info mt-3';
+            retryGuidance.innerHTML = `
+                <i class="fas fa-lightbulb me-2" aria-hidden="true"></i>
+                <strong>Quick tip:</strong> Use the "Try Again" button below to automatically retry your request.
+            `;
+            troubleshootingContent.appendChild(retryGuidance);
+        }
+
+        /**
+         * Configures retry functionality allowing users to attempt the failed request again with proper rate limiting
+         * Implements exponential backoff and tracks retry attempts with maximum retry limit
+         */
+        function setupRetryFunctionality() {
+            const retryButton = document.getElementById('retry-button');
+            const retryCounter = document.getElementById('retry-counter');
+            const retrySpinner = document.getElementById('retry-spinner');
+            const retryText = document.getElementById('retry-text');
+
+            if (!retryButton) return;
+
+            retryButton.addEventListener('click', handleRetryAttempt);
+            
+            // Update retry counter display
+            updateRetryCounter();
+
+            // Keyboard accessibility
+            retryButton.addEventListener('keydown', (event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    handleRetryAttempt();
+                }
+            });
+        }
+
+        /**
+         * Handles retry attempt with exponential backoff and user feedback
+         */
+        async function handleRetryAttempt() {
+            if (retryAttempts >= MAX_RETRY_ATTEMPTS) {
+                showRetryLimitReached();
+                return;
+            }
+
+            const retryButton = document.getElementById('retry-button');
+            const retrySpinner = document.getElementById('retry-spinner');
+            const retryText = document.getElementById('retry-text');
+
+            try {
+                // Update UI for loading state
+                retryButton.disabled = true;
+                retryButton.classList.add('loading-state');
+                retrySpinner.style.display = 'inline-block';
+                retryText.textContent = 'Retrying...';
+
+                // Increment retry counter
+                retryAttempts++;
+                updateRetryCounter();
+
+                // Calculate exponential backoff delay
+                const delay = Math.min(1000 * Math.pow(2, retryAttempts - 1), 10000);
+                
+                // Wait for backoff period
+                await new Promise(resolve => setTimeout(resolve, delay));
+
+                // Attempt to retry the original request
+                const success = await attemptRetry();
+
+                if (success) {
+                    showRetrySuccess();
+                } else {
+                    showRetryFailure();
+                }
+
+            } catch (error) {
+                console.error('Retry attempt failed:', error);
+                showRetryFailure();
+            } finally {
+                // Reset UI state
+                retryButton.disabled = retryAttempts >= MAX_RETRY_ATTEMPTS;
+                retryButton.classList.remove('loading-state');
+                retrySpinner.style.display = 'none';
+                retryText.textContent = retryAttempts >= MAX_RETRY_ATTEMPTS ? 'Max Retries Reached' : 'Try Again';
+            }
+        }
+
+        /**
+         * Attempts to retry the original failed request
+         */
+        async function attemptRetry() {
+            try {
+                const originalUrl = window.location.pathname;
+                const response = await fetch(originalUrl, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                        'Cache-Control': 'no-cache'
+                    }
+                });
+
+                return response.ok;
+            } catch (error) {
+                console.error('Retry request failed:', error);
+                return false;
+            }
+        }
+
+        /**
+         * Formats error details for display ensuring no sensitive information is exposed while providing useful debugging context
+         * Sanitizes error message and formats timestamp for user-friendly display
+         */
+        function formatErrorDetails(rawError, environment) {
+            const sanitizedError = {
+                status: rawError.status || 500,
+                message: sanitizeErrorMessage(rawError.message || 'An error occurred'),
+                timestamp: formatTimestamp(rawError.timestamp || new Date().toISOString()),
+                requestId: rawError.requestId || generateRequestId(),
+                severity: getErrorSeverity(rawError.status),
+                userAgent: getSafeUserAgent(),
+                environment: environment === 'development' ? 'development' : 'production'
+            };
+
+            // Remove sensitive information in production
+            if (environment === 'production') {
+                delete sanitizedError.stack;
+                delete sanitizedError.details;
+            }
+
+            return sanitizedError;
+        }
+
+        /**
+         * Handles optional error reporting functionality allowing users to report issues to the development team
+         * Collects safe browser information and validates user input
+         */
+        function handleErrorReporting(errorContext) {
+            const reportForm = document.getElementById('error-report');
+            const userDescription = document.getElementById('user-description');
+
+            if (!reportForm) return;
+
+            reportForm.addEventListener('submit', async (event) => {
+                event.preventDefault();
+
+                const description = userDescription.value.trim();
+                
+                try {
+                    // Validate input
+                    if (description && !isValidInput(description)) {
+                        showErrorReportValidation('Please provide a valid description without special characters.');
+                        return;
+                    }
+
+                    // Prepare error report
+                    const errorReport = {
+                        errorData: formatErrorDetails(errorData, systemInfo.environment),
+                        userDescription: sanitizeUserInput(description),
+                        browserInfo: getSafeBrowserInfo(),
+                        timestamp: new Date().toISOString(),
+                        url: window.location.href
+                    };
+
+                    // Submit error report
+                    const success = await submitErrorReport(errorReport);
+
+                    if (success) {
+                        showErrorReportSuccess();
+                    } else {
+                        showErrorReportFailure();
+                    }
+
+                } catch (error) {
+                    console.error('Error reporting failed:', error);
+                    showErrorReportFailure();
+                }
+            });
+        }
+
+        /**
+         * Displays system status information to provide context about the current state of the application and server
+         * Shows server uptime, Node.js version, and environment information
+         */
+        function renderSystemStatus() {
+            const appStatus = document.getElementById('app-status');
+            const serverStatus = document.getElementById('server-status');
+            const environmentInfo = document.getElementById('environment-info');
+            const nodeVersion = document.getElementById('node-version');
+            const lastHealthCheck = document.getElementById('last-health-check');
+
+            if (appStatus) {
+                const status = systemInfo.serverStatus === 'online' ? 'online' : 'error';
+                appStatus.className = `system-status ${status}`;
+                appStatus.textContent = systemInfo.serverStatus === 'online' ? 'Online' : 'Issues Detected';
+            }
+
+            if (serverStatus) {
+                serverStatus.className = 'system-status online';
+                serverStatus.textContent = 'Healthy';
+            }
+
+            if (environmentInfo) {
+                environmentInfo.textContent = systemInfo.environment.charAt(0).toUpperCase() + systemInfo.environment.slice(1);
+            }
+
+            if (nodeVersion) {
+                nodeVersion.textContent = systemInfo.nodeVersion;
+            }
+
+            if (lastHealthCheck) {
+                lastHealthCheck.textContent = formatRelativeTime(new Date());
+            }
+        }
+
+        /**
+         * Configures comprehensive accessibility features for the error page to ensure compatibility with screen readers and assistive technologies
+         * Sets up ARIA attributes, keyboard navigation, and screen reader announcements
+         */
+        function configureAccessibility() {
+            // Set up ARIA landmarks and roles
+            const main = document.querySelector('main');
+            if (main) {
+                main.setAttribute('role', 'main');
+                main.setAttribute('aria-label', 'Error page content');
+            }
+
+            // Configure heading hierarchy
+            const headings = document.querySelectorAll('h1, h2, h3, h4, h5, h6');
+            headings.forEach((heading, index) => {
+                heading.setAttribute('tabindex', '0');
+            });
+
+            // Add skip link for keyboard users
+            addSkipLink();
+
+            // Configure focus management
+            setupFocusManagement();
+
+            // Add keyboard navigation support
+            setupKeyboardNavigation();
+
+            // Configure high contrast mode detection
+            if (window.matchMedia && window.matchMedia('(prefers-contrast: high)').matches) {
+                document.body.classList.add('accessibility-enhanced');
+            }
+
+            // Set up screen reader live region
+            setupLiveRegion();
+        }
+
+        /**
+         * Sets up error reporting functionality
+         */
+        function setupErrorReporting() {
+            handleErrorReporting(errorData);
+        }
+
+        // Utility functions
+
+        /**
+         * Gets meta content by name
+         */
+        function getMetaContent(name) {
+            const meta = document.querySelector(`meta[name="${name}"]`);
+            return meta ? meta.getAttribute('content') : null;
+        }
+
+        /**
+         * Generates a unique request ID for correlation
+         */
+        function generateRequestId() {
+            const timestamp = Date.now().toString(36);
+            const random = Math.random().toString(36).substring(2);
+            return `REQ-${timestamp}-${random}`.toUpperCase();
+        }
+
+        /**
+         * Gets error type based on status code
+         */
+        function getErrorType(status) {
+            if (status >= 400 && status < 500) return 'client';
+            if (status >= 500) return 'server';
+            return 'unknown';
+        }
+
+        /**
+         * Gets friendly error message based on status code
+         */
+        function getFriendlyErrorMessage(status) {
+            const messages = {
+                400: 'Bad Request',
+                401: 'Unauthorized',
+                403: 'Forbidden',
+                404: 'Page Not Found',
+                405: 'Method Not Allowed',
+                408: 'Request Timeout',
+                429: 'Too Many Requests',
+                500: 'Internal Server Error',
+                502: 'Bad Gateway',
+                503: 'Service Unavailable',
+                504: 'Gateway Timeout'
+            };
+            return messages[status] || 'An Error Occurred';
+        }
+
+        /**
+         * Gets error description based on status code
+         */
+        function getErrorDescription(status) {
+            const descriptions = {
+                400: 'The request could not be understood by the server due to malformed syntax.',
+                401: 'Authentication is required to access this resource.',
+                403: 'You do not have permission to access this resource.',
+                404: 'The page you requested could not be found on our server. This might be because the URL was typed incorrectly, the page has been moved, or the resource is temporarily unavailable.',
+                405: 'The HTTP method used is not allowed for this resource.',
+                408: 'The server timed out waiting for the request.',
+                429: 'Too many requests have been made in a short period of time.',
+                500: 'The server encountered an internal error and was unable to complete your request.',
+                502: 'The server received an invalid response from an upstream server.',
+                503: 'The service is temporarily unavailable due to maintenance or overload.',
+                504: 'The server did not receive a timely response from an upstream server.'
+            };
+            return descriptions[status] || 'An unexpected error occurred while processing your request.';
+        }
+
+        /**
+         * Gets appropriate icon class for error status
+         */
+        function getErrorIcon(status) {
+            if (status === 404) return 'fa-search';
+            if (status === 405) return 'fa-ban';
+            if (status >= 500) return 'fa-server';
+            return 'fa-exclamation-triangle';
+        }
+
+        /**
+         * Formats timestamp for user-friendly display
+         */
+        function formatTimestamp(timestamp) {
+            try {
+                const date = new Date(timestamp);
+                return date.toLocaleString();
+            } catch (error) {
+                return 'Unknown time';
+            }
+        }
+
+        /**
+         * Formats relative time
+         */
+        function formatRelativeTime(date) {
+            const now = new Date();
+            const diff = now - date;
+            const seconds = Math.floor(diff / 1000);
+            
+            if (seconds < 60) return 'Just now';
+            if (seconds < 3600) return `${Math.floor(seconds / 60)} minutes ago`;
+            return `${Math.floor(seconds / 3600)} hours ago`;
+        }
+
+        /**
+         * Updates retry counter display
+         */
+        function updateRetryCounter() {
+            const counter = document.getElementById('retry-counter');
+            if (counter) {
+                counter.textContent = retryAttempts;
+            }
+        }
+
+        /**
+         * Shows retry success message
+         */
+        function showRetrySuccess() {
+            // Redirect to the original URL on successful retry
+            window.location.reload();
+        }
+
+        /**
+         * Shows retry failure message
+         */
+        function showRetryFailure() {
+            showUserMessage('The retry attempt was unsuccessful. Please try again later or contact support if the problem persists.', 'warning');
+        }
+
+        /**
+         * Shows retry limit reached message
+         */
+        function showRetryLimitReached() {
+            showUserMessage('Maximum retry attempts reached. Please contact support for further assistance.', 'danger');
+        }
+
+        /**
+         * Shows user message with specified type
+         */
+        function showUserMessage(message, type = 'info') {
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert alert-${type} alert-dismissible fade show mt-3`;
+            alertDiv.setAttribute('role', 'alert');
+            alertDiv.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            `;
+            
+            const heroSection = document.getElementById('error-hero-section');
+            if (heroSection) {
+                heroSection.appendChild(alertDiv);
+            }
+
+            // Auto-dismiss after 5 seconds
+            setTimeout(() => {
+                if (alertDiv.parentNode) {
+                    alertDiv.remove();
+                }
+            }, 5000);
+        }
+
+        /**
+         * Sanitizes error message to remove sensitive information
+         */
+        function sanitizeErrorMessage(message) {
+            // Remove file paths, IP addresses, and other sensitive data
+            return message
+                .replace(/\/[a-zA-Z0-9_\-\/\.]+/g, '[path]')
+                .replace(/\b(?:\d{1,3}\.){3}\d{1,3}\b/g, '[ip]')
+                .replace(/password|token|key|secret/gi, '[redacted]');
+        }
+
+        /**
+         * Gets error severity level
+         */
+        function getErrorSeverity(status) {
+            if (status >= 500) return 'critical';
+            if (status >= 400) return 'error';
+            return 'warning';
+        }
+
+        /**
+         * Gets safe user agent information
+         */
+        function getSafeUserAgent() {
+            const ua = navigator.userAgent;
+            // Remove version numbers and specific identifiers
+            return ua.replace(/\/[\d\.]+/g, '').substring(0, 100);
+        }
+
+        /**
+         * Gets safe browser information for error reporting
+         */
+        function getSafeBrowserInfo() {
+            return {
+                userAgent: getSafeUserAgent(),
+                language: navigator.language,
+                viewport: {
+                    width: window.innerWidth,
+                    height: window.innerHeight
+                },
+                timestamp: new Date().toISOString()
+            };
+        }
+
+        /**
+         * Validates user input for security
+         */
+        function isValidInput(input) {
+            // Basic validation to prevent malicious input
+            const dangerousPatterns = /<script|javascript:|data:/i;
+            return !dangerousPatterns.test(input);
+        }
+
+        /**
+         * Sanitizes user input
+         */
+        function sanitizeUserInput(input) {
+            return input
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#x27;')
+                .substring(0, 500); // Limit length
+        }
+
+        /**
+         * Submits error report to backend
+         */
+        async function submitErrorReport(reportData) {
+            try {
+                const response = await fetch('/api/error-report', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(reportData)
+                });
+
+                return response.ok;
+            } catch (error) {
+                console.error('Failed to submit error report:', error);
+                return false;
+            }
+        }
+
+        /**
+         * Shows error report validation message
+         */
+        function showErrorReportValidation(message) {
+            const validationDiv = document.createElement('div');
+            validationDiv.className = 'alert alert-danger mt-2';
+            validationDiv.textContent = message;
+            
+            const form = document.getElementById('error-report');
+            if (form) {
+                form.appendChild(validationDiv);
+                setTimeout(() => validationDiv.remove(), 5000);
+            }
+        }
+
+        /**
+         * Shows error report success message
+         */
+        function showErrorReportSuccess() {
+            const reportForm = document.getElementById('error-report-form');
+            if (reportForm) {
+                reportForm.innerHTML = `
+                    <div class="alert alert-success">
+                        <i class="fas fa-check-circle me-2"></i>
+                        Thank you! Your error report has been submitted successfully. 
+                        Our team will investigate the issue.
+                    </div>
+                `;
+            }
+        }
+
+        /**
+         * Shows error report failure message
+         */
+        function showErrorReportFailure() {
+            showUserMessage('Unable to submit error report at this time. Please try again later or contact support directly.', 'warning');
+        }
+
+        /**
+         * Announces error to screen readers
+         */
+        function announceErrorToScreenReader() {
+            const announcement = document.createElement('div');
+            announcement.setAttribute('role', 'alert');
+            announcement.setAttribute('aria-live', 'assertive');
+            announcement.className = 'sr-only';
+            announcement.textContent = `Error ${errorData.status}: ${getFriendlyErrorMessage(errorData.status)}`;
+            document.body.appendChild(announcement);
+        }
+
+        /**
+         * Displays fallback error when initialization fails
+         */
+        function displayFallbackError() {
+            document.getElementById('error-status-code').textContent = '500';
+            document.getElementById('error-primary-message').textContent = 'Server Error';
+            document.getElementById('error-description').textContent = 'An unexpected error occurred. Please try again later.';
+        }
+
+        /**
+         * Adds skip link for accessibility
+         */
+        function addSkipLink() {
+            const skipLink = document.createElement('a');
+            skipLink.href = '#main-content';
+            skipLink.textContent = 'Skip to main content';
+            skipLink.className = 'sr-only sr-only-focusable';
+            document.body.insertBefore(skipLink, document.body.firstChild);
+        }
+
+        /**
+         * Sets up focus management for accessibility
+         */
+        function setupFocusManagement() {
+            // Focus on main heading when page loads
+            const mainHeading = document.getElementById('error-status-code');
+            if (mainHeading) {
+                mainHeading.focus();
+            }
+        }
+
+        /**
+         * Sets up keyboard navigation
+         */
+        function setupKeyboardNavigation() {
+            // Add keyboard support for interactive elements
+            const interactiveElements = document.querySelectorAll('button, a, input, textarea');
+            interactiveElements.forEach(element => {
+                element.addEventListener('keydown', (event) => {
+                    if (event.key === 'Enter' && element.tagName === 'A') {
+                        element.click();
+                    }
+                });
+            });
+        }
+
+        /**
+         * Sets up screen reader live region
+         */
+        function setupLiveRegion() {
+            const liveRegion = document.createElement('div');
+            liveRegion.setAttribute('aria-live', 'polite');
+            liveRegion.setAttribute('aria-atomic', 'true');
+            liveRegion.className = 'sr-only';
+            liveRegion.id = 'live-region';
+            document.body.appendChild(liveRegion);
+        }
+
+        // Initialize error page when DOM is loaded
+        document.addEventListener('DOMContentLoaded', initializeErrorPage);
+
+        // Handle visibility change for better UX
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') {
+                // Refresh system status when page becomes visible
+                renderSystemStatus();
+            }
+        });
+
+        // Error boundary for unhandled JavaScript errors
+        window.addEventListener('error', (event) => {
+            console.error('Unhandled error on error page:', event.error);
+            // Prevent infinite error loops
+            if (!window.errorPageErrorHandled) {
+                window.errorPageErrorHandled = true;
+                displayFallbackError();
+            }
+        });
+
+        // Handle unhandled promise rejections
+        window.addEventListener('unhandledrejection', (event) => {
+            console.error('Unhandled promise rejection on error page:', event.reason);
+            event.preventDefault();
+        });
+    </script>
+</body>
+</html>
