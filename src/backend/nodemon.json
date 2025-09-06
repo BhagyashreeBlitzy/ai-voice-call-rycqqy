@@ -1,18 +1,50 @@
 {
   "watch": [
-    "src"
+    "src/",
+    "config/",
+    "bin/",
+    "server.js",
+    "app.js"
   ],
-  "ext": ".ts,.js,.json",
+  "ext": "js,json,mjs",
   "ignore": [
-    "src/**/*.spec.ts",
-    "src/**/*.test.ts"
+    "test/",
+    "coverage/",
+    "logs/",
+    "tmp/",
+    "node_modules/",
+    "*.test.js",
+    "*.spec.js",
+    ".git/",
+    ".github/",
+    "docs/",
+    "infrastructure/",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
   ],
-  "exec": "ts-node --files src/server.ts",
+  "exec": "node src/server.js",
   "env": {
     "NODE_ENV": "development",
-    "TS_NODE_PROJECT": "./tsconfig.json"
+    "PORT": "3000",
+    "HOST": "localhost",
+    "LOG_LEVEL": "debug",
+    "DEBUG": "true",
+    "VERBOSE": "true"
   },
-  "delay": "1000",
+  "delay": 2000,
   "verbose": true,
-  "restartable": "rs"
+  "legacyWatch": false,
+  "polling": false,
+  "quiet": false,
+  "inspect": false,
+  "inspectBrk": false,
+  "colours": true,
+  "restartable": "rs",
+  "stdout": true,
+  "stdin": true,
+  "runOnChangeOnly": false,
+  "signal": "SIGUSR2",
+  "cwd": "./",
+  "nodeArgs": []
 }
