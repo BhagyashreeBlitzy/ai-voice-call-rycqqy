@@ -1,0 +1,71 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: nodejs-tutorial
+  labels:
+    # Core Kubernetes recommended labels
+    name: nodejs-tutorial
+    app.kubernetes.io/name: nodejs-tutorial
+    app.kubernetes.io/instance: hello-world
+    app.kubernetes.io/version: "1.0.0"
+    app.kubernetes.io/component: namespace
+    app.kubernetes.io/part-of: nodejs-tutorial-app
+    app.kubernetes.io/managed-by: kubectl
+    app.kubernetes.io/created-by: infrastructure-team
+    
+    # Environment and deployment classification
+    environment: production
+    framework: express
+    language: nodejs
+    tier: infrastructure
+    
+    # Educational and tutorial metadata
+    tutorial.example.com/purpose: educational
+    tutorial.example.com/level: beginner
+    tutorial.example.com/framework: express
+    tutorial.example.com/version: "5.1.0"
+    tutorial.example.com/node-version: "22"
+    
+    # Security and isolation classification
+    security.example.com/isolation: namespace
+    deployment.example.com/pattern: microservice
+    
+  annotations:
+    # Namespace description and educational context
+    description: "Namespace for Node.js tutorial application demonstrating Express.js 5.1.0 HTTP server fundamentals with Kubernetes resource organization"
+    
+    # Educational documentation and learning resources
+    tutorial.example.com/documentation: "https://github.com/nodejs-tutorial/hello-world/blob/main/README.md"
+    tutorial.example.com/endpoints: "/hello,/health,/livez,/readyz"
+    tutorial.example.com/concepts: "kubernetes-namespace,resource-organization,network-isolation"
+    tutorial.example.com/learning-objectives: "kubernetes-resource-management,namespace-isolation,multi-environment-deployment"
+    
+    # Kubernetes operational metadata
+    kubectl.kubernetes.io/last-applied-configuration: ""
+    
+    # Security configuration annotations
+    security.example.com/network-policies: "enabled"
+    security.example.com/rbac: "enabled"
+    security.example.com/pod-security-standard: "restricted"
+    
+    # Monitoring and observability integration
+    monitoring.example.com/prometheus: "true"
+    monitoring.example.com/grafana: "true"
+    
+    # Deployment strategy and environment configuration
+    deployment.example.com/strategy: "rolling-update"
+    deployment.example.com/environments: "development,staging,production"
+    
+    # Resource management and capacity planning
+    resource.example.com/cpu-limit: "2000m"
+    resource.example.com/memory-limit: "4Gi"
+    resource.example.com/storage-limit: "10Gi"
+    
+    # Backup and disaster recovery configuration
+    backup.example.com/enabled: "false"
+    backup.example.com/retention: "7d"
+    
+spec: {}
+
+status:
+  phase: Active
