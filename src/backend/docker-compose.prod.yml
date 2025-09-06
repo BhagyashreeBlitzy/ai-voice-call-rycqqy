@@ -1,0 +1,422 @@
+# =============================================================================
+# Production Docker Compose Configuration for Node.js Tutorial Application
+# =============================================================================
+# Production-ready containerized deployment configuration using Docker Compose 3.8
+# for the Node.js tutorial application with Express.js 5.1.0 and Node.js 22.x LTS.
+# Implements comprehensive security hardening, resource optimization, monitoring
+# integration, and operational features for production deployments while maintaining
+# educational clarity for learning container orchestration patterns.
+#
+# Features:
+# - Security hardening with read-only filesystem, non-root execution, capability dropping
+# - Resource optimization with memory/CPU limits, graceful shutdown, log rotation
+# - Monitoring integration with health checks, metrics endpoints, structured logging
+# - Operational readiness with container orchestration compatibility and zero-downtime deployment
+# - Production security policies with minimal attack surface and security headers
+# - Educational architecture demonstrating Docker Compose production patterns
+#
+# Compatible with:
+# - Docker Compose 3.8+ specification for production container orchestration
+# - Node.js 22.11.0 LTS with Active LTS support extending into late 2025
+# - Express.js 5.1.0 with enhanced async/await support and automatic promise error handling
+# - Kubernetes, Docker Swarm, and cloud container platforms for deployment
+#
+# Usage:
+# docker-compose -f docker-compose.prod.yml up -d              # Start production services
+# docker-compose -f docker-compose.prod.yml logs -f           # Follow application logs
+# docker-compose -f docker-compose.prod.yml ps                # Check service status
+# docker-compose -f docker-compose.prod.yml down              # Stop and remove services
+#
+# @author Node.js Tutorial Team
+# @version 1.0.0
+# @educational_focus Production Docker Compose patterns, container security, operational readiness
+# =============================================================================
+
+version: '3.8'
+
+# =============================================================================
+# PRODUCTION SERVICES CONFIGURATION
+# =============================================================================
+services:
+  # ---------------------------------------------------------------------------
+  # Node.js Tutorial Production Service
+  # ---------------------------------------------------------------------------
+  nodejs-tutorial-prod:
+    # Service metadata and identification
+    container_name: nodejs-tutorial-prod
+    
+    # Production container build configuration with multi-stage Dockerfile
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+      args:
+        # Node.js runtime version for consistent builds
+        NODE_VERSION: 22
+        ALPINE_VERSION: 3.19
+        # Build metadata for operational tracking
+        BUILD_DATE: ${BUILD_DATE:-}
+        VCS_REF: ${VCS_REF:-}
+      # Build cache optimization for faster deployments
+      cache_from:
+        - nodejs-tutorial:latest
+        - nodejs-tutorial:production
+    
+    # Production container image with version tagging
+    image: nodejs-tutorial:production
+    
+    # Container restart policy for high availability
+    restart: unless-stopped
+    
+    # Network port mapping for external access
+    ports:
+      - "8080:3000"
+    
+    # Production environment variables for Express.js 5.1.0 and Node.js 22.x LTS
+    environment:
+      # Core application environment
+      NODE_ENV: production
+      PORT: 3000
+      HOST: 0.0.0.0
+      
+      # Production logging configuration
+      LOG_LEVEL: warn
+      DEBUG: false
+      VERBOSE: false
+      
+      # Security and proxy configuration
+      TRUST_PROXY: true
+      RATE_LIMIT_ENABLED: true
+      HELMET_ENABLED: true
+      CSP_ENABLED: true
+      
+      # Monitoring and observability
+      ENABLE_METRICS: true
+      HEALTH_ENDPOINTS: true
+      HEALTH_CHECK_TIMEOUT: 5000
+      
+      # Performance optimization
+      COMPRESSION_ENABLED: true
+      GRACEFUL_SHUTDOWN: true
+      
+      # Feature flags
+      HELLO_ENDPOINT: true
+      
+      # Production-specific overrides
+      PROD_PORT: 3000
+      PROD_HOST: 0.0.0.0
+    
+    # Volume mounts for persistent data and writable areas
+    volumes:
+      # Application logs volume for monitoring and debugging
+      - app-logs:/usr/src/app/logs:rw
+      # Temporary files volume for application runtime
+      - app-tmp:/usr/src/app/tmp:rw
+    
+    # Custom network for service isolation and security
+    networks:
+      - nodejs-tutorial-prod-network
+    
+    # Comprehensive health check configuration for container orchestration
+    healthcheck:
+      # Health check command using Node.js built-in HTTP capabilities
+      test: 
+        - "CMD"
+        - "node"
+        - "-e"
+        - |
+          const http=require('http');
+          const options={
+            host:'localhost',
+            port:3000,
+            path:'/health',
+            timeout:3000,
+            method:'GET'
+          };
+          const req=http.request(options,(res)=>{
+            if(res.statusCode===200){
+              process.exit(0);
+            }else{
+              process.exit(1);
+            }
+          });
+          req.on('error',()=>process.exit(1));
+          req.on('timeout',()=>process.exit(1));
+          req.end();
+      # Health check timing configuration
+      interval: 30s           # Check every 30 seconds
+      timeout: 10s            # 10 second timeout for health check
+      retries: 3              # Retry 3 times before marking unhealthy
+      start_period: 15s       # Wait 15 seconds after container start
+    
+    # Production deployment configuration with resource management
+    deploy:
+      # Resource limits and reservations for optimal performance
+      resources:
+        limits:
+          # Maximum memory limit for container (512MB)
+          memory: 512M
+          # Maximum CPU usage limit (1.0 CPU core)
+          cpus: '1.0'
+        reservations:
+          # Guaranteed memory allocation (256MB)
+          memory: 256M
+          # Guaranteed CPU allocation (0.5 CPU core)
+          cpus: '0.5'
+      
+      # Restart policy for production resilience
+      restart_policy:
+        condition: on-failure   # Restart only on failure
+        delay: 10s              # Wait 10 seconds before restart
+        max_attempts: 3         # Maximum 3 restart attempts
+        window: 300s            # Reset attempt counter after 5 minutes
+    
+    # Graceful shutdown configuration
+    stop_grace_period: 30s      # Allow 30 seconds for graceful shutdown
+    stop_signal: SIGTERM        # Use SIGTERM for graceful shutdown
+    
+    # Container metadata labels for operational management
+    labels:
+      # Application identification
+      app: nodejs-tutorial
+      environment: production
+      version: ${VERSION:-1.0.0}
+      maintainer: nodejs-tutorial-team
+      
+      # OCI image metadata following standards
+      org.opencontainers.image.title: "Node.js Hello Tutorial Production"
+      org.opencontainers.image.description: "Production deployment of educational Node.js tutorial application"
+      org.opencontainers.image.version: ${VERSION:-1.0.0}
+      org.opencontainers.image.created: ${BUILD_DATE:-}
+      org.opencontainers.image.revision: ${VCS_REF:-}
+      org.opencontainers.image.source: "https://github.com/nodejs-tutorial/hello-world"
+      org.opencontainers.image.url: "https://github.com/nodejs-tutorial/hello-world"
+      org.opencontainers.image.documentation: "https://github.com/nodejs-tutorial/hello-world#readme"
+      org.opencontainers.image.vendor: "Node.js Tutorial Team"
+      org.opencontainers.image.licenses: "MIT"
+      
+      # Operational metadata
+      deployment.type: production
+      monitoring.enabled: true
+      backup.required: false
+    
+    # Security hardening configuration
+    user: "node:node"           # Run as non-root node user (uid:gid 1000:1000)
+    read_only: true             # Read-only root filesystem for security
+    
+    # Temporary filesystem mounts for writable areas
+    tmpfs:
+      - /tmp:size=100M,mode=1777,exec,suid,dev    # Temporary directory with proper permissions
+    
+    # Security options for enhanced protection
+    security_opt:
+      - no-new-privileges:true  # Prevent privilege escalation
+    
+    # Drop all Linux capabilities for minimal attack surface
+    cap_drop:
+      - ALL
+    
+    # Production logging configuration with rotation and compression
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"         # Maximum log file size (10MB)
+        max-file: "3"           # Maximum number of log files
+        compress: "true"        # Enable log compression
+        labels: "app,environment,version"
+
+# =============================================================================
+# NETWORK CONFIGURATION
+# =============================================================================
+networks:
+  # Production network with custom configuration
+  nodejs-tutorial-prod-network:
+    driver: bridge
+    
+    # IP address management for network isolation
+    ipam:
+      driver: default
+      config:
+        # Custom subnet for production isolation
+        - subnet: 172.20.0.0/16
+          gateway: 172.20.0.1
+    
+    # Network metadata and identification
+    labels:
+      app: nodejs-tutorial
+      environment: production
+      purpose: production-network-isolation
+      version: ${VERSION:-1.0.0}
+    
+    # Network driver options for performance optimization
+    driver_opts:
+      com.docker.network.bridge.name: br-nodejs-tutorial-prod
+      com.docker.network.bridge.enable_icc: "true"
+      com.docker.network.bridge.enable_ip_masquerade: "true"
+      com.docker.network.driver.mtu: "1500"
+
+# =============================================================================
+# VOLUME CONFIGURATION
+# =============================================================================
+volumes:
+  # Application logs volume for persistent log storage
+  app-logs:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${LOG_DIR:-./logs}
+    
+    # Volume metadata
+    labels:
+      app: nodejs-tutorial
+      environment: production
+      purpose: application-logs
+      retention: "30-days"
+      backup: "not-required"
+  
+  # Application temporary files volume
+  app-tmp:
+    driver: local
+    
+    # Volume metadata
+    labels:
+      app: nodejs-tutorial
+      environment: production
+      purpose: temporary-files
+      lifecycle: ephemeral
+      cleanup: automatic
+
+# =============================================================================
+# PRODUCTION DEPLOYMENT CONFIGURATION
+# =============================================================================
+# Additional configuration sections for production deployment scenarios
+
+# Extension fields for configuration reuse and maintenance
+x-common-variables: &common-variables
+  NODE_ENV: production
+  LOG_LEVEL: warn
+  TRUST_PROXY: true
+
+x-resource-limits: &resource-limits
+  limits:
+    memory: 512M
+    cpus: '1.0'
+  reservations:
+    memory: 256M
+    cpus: '0.5'
+
+x-common-labels: &common-labels
+  app: nodejs-tutorial
+  environment: production
+  maintainer: nodejs-tutorial-team
+  version: ${VERSION:-1.0.0}
+
+# =============================================================================
+# ENVIRONMENT-SPECIFIC OVERRIDES
+# =============================================================================
+# The following configurations can be overridden using environment variables:
+#
+# BUILD_DATE: Build timestamp for container metadata
+# VCS_REF: Git commit hash for version tracking
+# VERSION: Application version for deployment tracking
+# LOG_DIR: Host directory for log file storage (default: ./logs)
+#
+# Example usage:
+# BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ') \
+# VCS_REF=$(git rev-parse --short HEAD) \
+# VERSION=1.0.0 \
+# LOG_DIR=/var/log/nodejs-tutorial \
+# docker-compose -f docker-compose.prod.yml up -d
+
+# =============================================================================
+# OPERATIONAL COMMANDS
+# =============================================================================
+# Common operational commands for production management:
+#
+# Start services:
+# docker-compose -f docker-compose.prod.yml up -d
+#
+# View logs:
+# docker-compose -f docker-compose.prod.yml logs -f nodejs-tutorial-prod
+#
+# Check service health:
+# docker-compose -f docker-compose.prod.yml ps
+# docker inspect nodejs-tutorial-prod | grep Health
+#
+# Scale services:
+# docker-compose -f docker-compose.prod.yml up -d --scale nodejs-tutorial-prod=3
+#
+# Update configuration:
+# docker-compose -f docker-compose.prod.yml up -d --force-recreate
+#
+# Stop services:
+# docker-compose -f docker-compose.prod.yml down
+#
+# Remove everything including volumes:
+# docker-compose -f docker-compose.prod.yml down -v --remove-orphans
+#
+# Monitor resource usage:
+# docker stats nodejs-tutorial-prod
+#
+# Execute maintenance tasks:
+# docker-compose -f docker-compose.prod.yml exec nodejs-tutorial-prod node -e "console.log('Health check')"
+
+# =============================================================================
+# PRODUCTION DEPLOYMENT CHECKLIST
+# =============================================================================
+# Pre-deployment verification checklist:
+# □ Set BUILD_DATE, VCS_REF, and VERSION environment variables
+# □ Ensure LOG_DIR exists and has proper permissions
+# □ Verify Docker and Docker Compose versions meet requirements
+# □ Test health check endpoint accessibility
+# □ Validate resource limits align with host capacity
+# □ Configure log rotation and monitoring
+# □ Set up backup procedures if required
+# □ Test graceful shutdown procedures
+# □ Verify network security and isolation
+# □ Configure external monitoring and alerting
+
+# =============================================================================
+# SECURITY CONSIDERATIONS
+# =============================================================================
+# Production security features implemented:
+# - Non-root user execution (node:node - uid:gid 1000:1000)
+# - Read-only root filesystem with specific writable volumes
+# - All Linux capabilities dropped for minimal attack surface
+# - no-new-privileges security option to prevent privilege escalation
+# - Custom network isolation with restricted subnet
+# - Comprehensive security headers via Helmet.js middleware
+# - Rate limiting for DDoS protection
+# - Input validation and sanitization
+# - Structured error handling without information disclosure
+# - Regular security dependency updates via base image management
+
+# =============================================================================
+# MONITORING AND OBSERVABILITY
+# =============================================================================
+# Monitoring features available:
+# - Container health checks with /health endpoint
+# - Kubernetes-compatible liveness and readiness probes
+# - Prometheus metrics endpoint at /metrics
+# - Structured JSON logging with log rotation
+# - Application performance monitoring
+# - Resource usage tracking (CPU, memory)
+# - Request/response logging with correlation IDs
+# - Error tracking and operational alerts
+# - Uptime monitoring and SLA tracking
+
+# =============================================================================
+# EDUCATIONAL VALUE
+# =============================================================================
+# Concepts demonstrated in this configuration:
+# - Production Docker Compose patterns and best practices
+# - Container security hardening techniques
+# - Resource management and optimization strategies
+# - Health check implementation for container orchestration
+# - Network isolation and security boundaries
+# - Volume management for persistent data
+# - Environment-specific configuration management
+# - Operational readiness and deployment automation
+# - Monitoring and observability integration
+# - Graceful shutdown and zero-downtime deployment patterns
