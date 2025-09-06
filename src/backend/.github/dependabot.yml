@@ -1,0 +1,494 @@
+# =============================================================================
+# Backend-Specific Dependabot Configuration - Node.js Tutorial Application
+# =============================================================================
+# Specialized GitHub Dependabot configuration for automated backend dependency management
+# of the Node.js tutorial application featuring Express.js 5.1.0 framework compatibility,
+# Jest 29.7.0 testing infrastructure, and Node.js 22.x LTS requirement maintenance with
+# educational tutorial consistency validation, security-first update prioritization, and
+# comprehensive backend CI/CD workflow integration supporting NPM package ecosystem management,
+# educational dependency policies, and production-ready automated maintenance workflows.
+#
+# Architecture:
+# - Ecosystem Focus: NPM package ecosystem with backend application dependency specialization
+# - Coordination Strategy: Staggered scheduling with root-level Dependabot to prevent conflicts
+# - Security Integration: Immediate critical vulnerability processing with backend CI/CD automation
+# - Educational Policies: Tutorial consistency validation with Express.js 5.1.0 compatibility baseline
+# - Quality Gates: Automated testing triggers with Jest framework integration and coverage validation
+# - Dependency Grouping: Framework-specific batching for Express.js, testing tools, and development utilities
+# - Review Workflow: Backend-focused reviewer assignment with educational team coordination
+# - Branch Management: Backend-specific branch naming with automated cleanup and merge optimization
+#
+# Features:
+# - Express.js 5.1.0 framework compatibility management with automatic minor/patch updates
+# - Node.js 22.x LTS engine compatibility enforcement across all backend dependency updates
+# - Jest testing framework integration with Supertest HTTP testing coordination and batch updates
+# - Educational tutorial consistency validation with learning objective preservation policies
+# - Security-first vulnerability management with immediate critical update processing and CI/CD integration
+# - Development tooling optimization for ESLint, Prettier, and Nodemon with coordinated batch processing
+# - Docker container dependency coordination for Node.js base image and Alpine Linux compatibility
+# - Backend CI/CD workflow integration with automated testing, security scanning, and quality validation
+# - Comprehensive educational reporting with dependency update impact assessment and learning materials
+# - Repository coordination with root-level Dependabot configuration to ensure consistent update policies
+#
+# Educational Value:
+# - Demonstrates backend-specific dependency management patterns for Node.js tutorial applications
+# - Shows Express.js framework dependency coordination with testing infrastructure and development tools
+# - Illustrates security-first update prioritization with educational context and vulnerability explanations
+# - Teaches dependency grouping strategies for coherent framework updates and testing consistency
+# - Provides examples of CI/CD integration patterns for automated quality validation and educational reporting
+# - Shows coordination patterns between root-level and directory-specific Dependabot configurations
+# - Demonstrates educational policy integration for tutorial consistency and learning objective preservation
+#
+# Backend Integration Points:
+# - Package Management: NPM ecosystem with src/backend/package.json and package-lock.json monitoring
+# - Testing Framework: Jest 29.7.0 with Supertest integration for HTTP endpoint testing automation
+# - Code Quality: ESLint configuration with security plugins and educational rule enforcement
+# - Security Scanning: Integration with backend security-scan.yml workflow and vulnerability management
+# - Container Integration: Docker base image coordination for Node.js 22-alpine container security
+# - Educational Reporting: Comprehensive dependency update documentation with learning materials generation
+#
+# @author Backend Tutorial Team  
+# @version 2
+# @since 2024
+# @dependabot-version 2
+# @coordination-level backend-specific
+# @educational-focus tutorial-consistency
+# @security-priority immediate-critical
+# @framework-compatibility express-5.1.0
+
+# Dependabot configuration schema version 2 for comprehensive feature support and backend specialization
+version: 2
+
+# =============================================================================
+# BACKEND NPM ECOSYSTEM CONFIGURATION - Express.js and Node.js Dependency Management
+# =============================================================================
+updates:
+  # Backend NPM package ecosystem management with Express.js 5.1.0 compatibility and educational focus
+  - package-ecosystem: npm
+    
+    # Backend-specific directory monitoring for isolated dependency management
+    directory: "/src/backend"
+    
+    # Optimized update scheduling coordinated with root-level Dependabot configuration to prevent conflicts
+    schedule:
+      interval: weekly          # Weekly backend dependency updates for stable development workflow
+      day: monday              # Monday morning updates for start-of-week integration and planning
+      time: "06:00"            # Early UTC timing coordinated with root configuration offset
+      timezone: "UTC"          # Consistent timezone for international educational team coordination
+    
+    # Backend-specific pull request management optimized for educational workflow and review efficiency
+    open-pull-requests-limit: 5
+    target-branch: "develop"
+    
+    # Backend-focused reviewer assignment with educational expertise and tutorial domain knowledge
+    reviewers:
+      - "backend-tutorial-team"
+      - "nodejs-education-maintainers" 
+      - "express-tutorial-authors"
+    
+    # Backend lead maintainer assignment for educational coordination and tutorial consistency validation
+    assignees:
+      - "backend-lead-maintainer"
+      - "nodejs-tutorial-coordinator"
+    
+    # Comprehensive labeling for backend dependency identification and educational categorization
+    labels:
+      - "backend-dependencies"
+      - "npm"
+      - "tutorial-consistency"
+      - "educational"
+      - "automated-update"
+      - "express-framework"
+      - "nodejs-lts"
+    
+    # Educational milestone integration for backend tutorial dependency tracking
+    milestone: "Backend Tutorial Dependency Updates"
+    
+    # Conventional commit messaging with backend scope for automated changelog generation
+    commit-message:
+      prefix: "deps(backend)"
+      prefix-development: "deps(backend-dev)"
+      include: "scope"
+    
+    # Intelligent dependency update strategy with educational compatibility focus
+    allow:
+      - dependency-type: "direct"      # Direct backend application dependencies
+      - dependency-type: "indirect"    # Transitive dependencies for security updates
+      - dependency-type: "development" # Development tooling for educational workflow
+    
+    # Framework and educational compatibility constraints for tutorial consistency
+    ignore:
+      # Express.js version pinning for tutorial consistency and educational pattern preservation
+      - dependency-name: "express"
+        versions: [">=6.0.0"]
+        reason: "Express v6 would break tutorial compatibility and educational examples - maintaining v5.1.0 baseline"
+      
+      # Node.js engine compatibility enforcement for educational LTS requirements
+      - dependency-name: "node"
+        versions: ["<22.0.0", ">=23.0.0"]
+        reason: "Tutorial requires Node.js 22.x LTS for educational consistency and framework compatibility"
+      
+      # Jest major version stability for testing framework educational consistency
+      - dependency-name: "jest"
+        versions: [">=30.0.0"]
+        reason: "Maintaining Jest 29.x for educational testing pattern consistency and framework stability"
+    
+    # Strategic dependency grouping for coherent backend framework and tooling updates
+    groups:
+      # Express.js framework ecosystem updates grouped for tutorial consistency and compatibility
+      express-framework:
+        patterns:
+          - "express*"
+          - "@types/express*"
+        update-types:
+          - "minor"
+          - "patch"
+        exclude-patterns:
+          - "express@>=6.0.0"
+      
+      # Testing framework dependencies grouped for educational testing consistency and coordination
+      testing-frameworks:
+        patterns:
+          - "jest*"
+          - "supertest*" 
+          - "@types/jest*"
+          - "@types/supertest*"
+        update-types:
+          - "minor"
+          - "patch"
+      
+      # Development tooling grouped for educational workflow consistency and productivity optimization
+      development-tooling:
+        patterns:
+          - "eslint*"
+          - "prettier*"
+          - "nodemon*"
+          - "husky*"
+          - "lint-staged*"
+        update-types:
+          - "minor"
+          - "patch"
+      
+      # Security scanning and analysis tools grouped for comprehensive vulnerability management
+      security-scanning:
+        patterns:
+          - "*audit*"
+          - "*security*"
+          - "c8*"
+          - "snyk*"
+        update-types:
+          - "minor"
+          - "patch"
+          - "major"  # Allow major updates for security tools to get latest vulnerability coverage
+      
+      # TypeScript definitions grouped for type safety and educational development consistency
+      type-definitions:
+        patterns:
+          - "@types/*"
+        update-types:
+          - "minor"
+          - "patch"
+    
+    # Advanced versioning strategy for stable educational development workflow
+    versioning-strategy: "increase"
+    
+    # Backend-specific branch naming for clear identification and automated workflow integration
+    pull-request-branch-name:
+      separator: "/"
+      format: "dependabot/backend/{{dependency_name}}-{{new_version}}"
+    
+    # Security configuration for safe code execution in educational environment
+    insecure-external-code-execution: "deny"
+    
+    # Registry configuration for NPM package access with educational account integration
+    registries: "*"
+    
+    # Update rebase strategy for clean Git history and educational development workflow
+    rebase-strategy: "auto"
+
+# =============================================================================
+# BACKEND DOCKER ECOSYSTEM CONFIGURATION - Node.js Container Base Image Management
+# =============================================================================
+  # Backend container dependency management for Node.js base images with Alpine Linux security
+  - package-ecosystem: docker
+    
+    # Backend Docker directory monitoring for container dependency management
+    directory: "/src/backend"
+    
+    # Container image update scheduling coordinated with NPM updates for systematic dependency management
+    schedule:
+      interval: daily           # Daily monitoring for container security patches and Node.js image updates
+      time: "06:30"            # Offset timing to prevent conflicts with NPM dependency updates
+      timezone: "UTC"          # Consistent timezone for global educational team coordination
+    
+    # Backend container update pull request management
+    open-pull-requests-limit: 3
+    target-branch: "develop"
+    
+    # Container-focused reviewer assignment with backend infrastructure expertise
+    reviewers:
+      - "backend-tutorial-team"
+      - "docker-education-team"
+      - "infrastructure-maintainers"
+    
+    # Infrastructure maintainer assignment for container security and educational deployment
+    assignees:
+      - "backend-infrastructure-lead"
+      - "container-security-specialist"
+    
+    # Container update labeling for infrastructure identification and security tracking
+    labels:
+      - "backend-containers"
+      - "docker"
+      - "infrastructure"
+      - "security"
+      - "nodejs-images"
+      - "alpine-linux"
+    
+    # Container infrastructure milestone for backend deployment tracking
+    milestone: "Backend Container Infrastructure Updates"
+    
+    # Container update commit messaging with infrastructure scope
+    commit-message:
+      prefix: "deps(docker-backend)"
+      include: "scope"
+    
+    # Container dependency update strategy for base images and security patches
+    allow:
+      - dependency-type: "direct"      # Direct base image references only
+    
+    # Container image version constraints for backend educational compatibility
+    ignore:
+      # Node.js container image version constraints for tutorial LTS requirements
+      - dependency-name: "node"
+        versions: ["<22"]
+        reason: "Maintaining Node.js 22.x LTS requirement for backend tutorial application compatibility"
+      
+      # Alpine Linux version constraints for security and package support
+      - dependency-name: "alpine"
+        versions: ["<3.18"]
+        reason: "Minimum Alpine version requirement for security patches and Node.js compatibility"
+    
+    # Container image grouping for systematic infrastructure updates
+    groups:
+      # Node.js runtime images grouped by LTS version for backend consistency
+      nodejs-runtime-images:
+        patterns:
+          - "node*"
+        update-types:
+          - "minor"
+          - "patch"
+      
+      # Base operating system images grouped for security and stability updates
+      base-system-images:
+        patterns:
+          - "alpine*"
+        update-types:
+          - "minor"
+          - "patch"
+    
+    # Container versioning strategy for stable backend infrastructure
+    versioning-strategy: "increase"
+    
+    # Container-specific branch naming for infrastructure change identification
+    pull-request-branch-name:
+      separator: "/"
+      format: "dependabot/backend-docker/{{dependency_name}}-{{new_version}}"
+    
+    # Security configuration for container build process
+    insecure-external-code-execution: "deny"
+    
+    # Container update rebase strategy for clean infrastructure change history
+    rebase-strategy: "auto"
+
+# =============================================================================
+# EDUCATIONAL DEPENDENCY POLICIES - Tutorial Consistency and Learning Objective Preservation
+# =============================================================================
+# Educational Policy Integration (Implemented through update constraints and review workflows):
+#
+# 1. Express.js Framework Compatibility Policy:
+#    - Maintain Express.js 5.1.0 baseline compatibility for tutorial consistency
+#    - Allow minor and patch updates to demonstrate framework evolution
+#    - Block Express.js v6.x to preserve educational patterns and example consistency
+#    - Coordinate with Express.js tutorial content and learning progression
+#
+# 2. Node.js LTS Educational Alignment Policy:  
+#    - Enforce Node.js 22.x LTS compatibility for educational runtime consistency
+#    - Block non-LTS versions to maintain stability for learners
+#    - Coordinate with Node.js educational content and feature demonstrations
+#    - Ensure container base image alignment with runtime requirements
+#
+# 3. Testing Framework Educational Consistency Policy:
+#    - Maintain Jest 29.x for testing framework educational pattern consistency
+#    - Coordinate Supertest updates with HTTP endpoint testing tutorials
+#    - Group testing dependencies for cohesive educational testing demonstrations
+#    - Preserve testing examples and educational progression patterns
+#
+# 4. Development Tooling Educational Workflow Policy:
+#    - Coordinate ESLint updates with code quality educational content
+#    - Maintain Prettier formatting consistency for educational code examples
+#    - Group development tools for consistent educational development environment
+#    - Preserve linting rules that support educational learning objectives
+#
+# 5. Security Education Integration Policy:
+#    - Prioritize security updates with educational security explanations
+#    - Coordinate vulnerability scanning with security learning materials
+#    - Generate educational security reports with vulnerability context
+#    - Integrate security updates with educational security training content
+
+# =============================================================================  
+# CI/CD INTEGRATION CONFIGURATION - Backend Workflow Coordination
+# =============================================================================
+# Backend CI/CD Workflow Integration Points:
+#
+# 1. Automated Testing Integration:
+#    - Trigger backend CI workflow on Dependabot pull requests
+#    - Execute Jest test suite with comprehensive coverage validation
+#    - Run Supertest HTTP endpoint testing for Express.js compatibility
+#    - Validate ESLint configuration with security rules and educational standards
+#
+# 2. Security Scanning Workflow Integration:
+#    - Execute backend security-scan.yml workflow for dependency vulnerabilities
+#    - Run NPM audit with enhanced vulnerability detection and reporting
+#    - Integrate container security scanning for Node.js base image vulnerabilities
+#    - Generate SARIF security reports for GitHub Security tab integration
+#
+# 3. Docker Build Workflow Integration:
+#    - Trigger Docker build workflow for container dependency updates
+#    - Validate multi-stage build process with backend dependency changes
+#    - Execute container security scanning with Trivy vulnerability assessment
+#    - Test container health checks and runtime compatibility
+#
+# 4. Quality Gate Validation Integration:
+#    - Execute comprehensive quality gate validation for dependency updates
+#    - Validate code coverage maintenance with Jest framework integration
+#    - Check security scan results for blocking vulnerabilities
+#    - Ensure educational compatibility with tutorial consistency requirements
+#
+# 5. Educational Reporting Integration:
+#    - Generate comprehensive educational dependency update reports
+#    - Create learning materials explaining dependency changes and security impact
+#    - Update tutorial documentation with dependency version changes
+#    - Coordinate with educational team for learning objective validation
+
+# =============================================================================
+# COORDINATION WITH ROOT DEPENDABOT CONFIGURATION
+# =============================================================================
+# Root-Level Coordination Strategy:
+#
+# 1. Scheduling Coordination:
+#    - Backend: Weekly Monday 06:00 UTC (this configuration)
+#    - Root NPM: Daily 06:00 UTC (root configuration)  
+#    - Root Docker: Daily 06:30 UTC (root configuration)
+#    - Root GitHub Actions: Weekly Monday 07:00 UTC (root configuration)
+#    - Staggered timing prevents resource conflicts and reviewer overwhelm
+#
+# 2. Reviewer Assignment Deduplication:
+#    - Backend-specific reviewers: backend-tutorial-team, nodejs-education-maintainers
+#    - Root-level reviewers: nodejs-tutorial-team (general), maintainer (general)
+#    - Specialized expertise routing prevents duplicate notifications and ensures appropriate review
+#
+# 3. Branch Management Coordination:
+#    - Backend branches: dependabot/backend/* (this configuration)
+#    - Root branches: dependabot/npm/*, dependabot/docker/*, dependabot/github-actions/* (root configuration)
+#    - Clear namespace separation prevents branch conflicts and enables automated workflow routing
+#
+# 4. Update Scope Separation:
+#    - Backend scope: src/backend/ directory NPM and Docker dependencies (this configuration)
+#    - Root scope: Repository-wide GitHub Actions and general infrastructure (root configuration)  
+#    - Directory-based separation ensures clear responsibility boundaries and prevents duplicate updates
+#
+# 5. Security Policy Synchronization:
+#    - Both configurations prioritize immediate critical security updates
+#    - Consistent vulnerability thresholds and security scanning integration
+#    - Coordinated security reviewer assignment and escalation procedures
+#    - Unified security reporting and vulnerability management workflows
+
+# =============================================================================
+# PERFORMANCE OPTIMIZATION CONFIGURATION
+# =============================================================================
+# Backend Dependency Update Performance Optimization:
+#
+# 1. Update Batching Strategy:
+#    - Framework dependencies (Express.js ecosystem) grouped for consistency
+#    - Testing tools (Jest, Supertest) batched for testing workflow efficiency  
+#    - Development tools (ESLint, Prettier) grouped for developer experience consistency
+#    - Security tools allowed major updates for latest vulnerability coverage
+#
+# 2. Pull Request Consolidation:
+#    - Maximum 5 NPM pull requests to balance automation with reviewer capacity
+#    - Maximum 3 Docker pull requests for infrastructure change management
+#    - Dependency grouping reduces total pull request volume through intelligent batching
+#
+# 3. CI/CD Pipeline Efficiency:
+#    - Backend-specific branch naming enables targeted workflow execution
+#    - Coordinated scheduling prevents simultaneous CI/CD resource usage
+#    - Educational policy integration reduces unnecessary update cycles
+#
+# 4. Review Process Optimization:
+#    - Specialized reviewer assignment based on backend expertise and educational domain knowledge
+#    - Educational team coordination for learning objective validation and tutorial consistency
+#    - Automated milestone assignment for dependency tracking and release planning
+#
+# 5. Educational Content Coordination:
+#    - Tutorial consistency validation prevents unnecessary educational content updates
+#    - Learning objective preservation reduces educational material maintenance overhead
+#    - Comprehensive educational reporting provides context for dependency changes
+
+# =============================================================================
+# SECURITY AND COMPLIANCE CONFIGURATION
+# =============================================================================
+# Backend Security and Educational Compliance:
+#
+# 1. Vulnerability Management:
+#    - Immediate critical vulnerability processing with backend CI/CD integration
+#    - Educational security explanations with learning context and remediation guidance
+#    - Comprehensive security scanning integration with backend workflows
+#    - SARIF report generation for centralized vulnerability management
+#
+# 2. Educational Security Integration:
+#    - Security updates include educational context and vulnerability explanations
+#    - Learning materials generated for security-related dependency changes
+#    - Security scanning results integrated with educational security training
+#    - Vulnerability impact assessment with tutorial-specific recommendations
+#
+# 3. Framework Security Compliance:
+#    - Express.js security best practices maintained through dependency constraints
+#    - Node.js LTS security patches prioritized for educational runtime stability
+#    - Container security scanning for Node.js base image vulnerability management
+#    - Development tooling security validation with educational rule enforcement
+#
+# 4. Access Control and Authentication:
+#    - Registry authentication for secure package access (inherits from root configuration)
+#    - Secure code execution policies for educational environment safety
+#    - Reviewer authentication and authorization for educational team coordination
+#    - Branch protection and merge policies for educational content integrity
+
+# =============================================================================
+# MONITORING AND REPORTING CONFIGURATION  
+# =============================================================================
+# Backend Dependency Monitoring and Educational Reporting:
+#
+# 1. Dependency Health Monitoring:
+#    - Express.js framework compatibility tracking with tutorial consistency validation
+#    - Node.js LTS compliance monitoring with educational runtime requirement verification
+#    - Testing framework integration health with Jest and Supertest coordination
+#    - Security scanning integration with comprehensive vulnerability assessment
+#
+# 2. Educational Impact Assessment:
+#    - Tutorial consistency impact analysis for dependency changes
+#    - Learning objective preservation validation with educational team review
+#    - Educational content update requirements with dependency version changes  
+#    - Student learning impact assessment with tutorial progression analysis
+#
+# 3. Performance and Quality Metrics:
+#    - Backend CI/CD integration success rates with quality gate validation
+#    - Dependency update cycle times with educational workflow efficiency
+#    - Security vulnerability resolution times with educational security training
+#    - Educational content maintenance overhead with dependency coordination
+#
+# 4. Comprehensive Educational Reporting:
+#    - Dependency change documentation with educational context and explanations
+#    - Security update reports with educational vulnerability explanations
+#    - Tutorial consistency validation reports with learning objective analysis
+#    - Educational team coordination summaries with dependency impact assessment
