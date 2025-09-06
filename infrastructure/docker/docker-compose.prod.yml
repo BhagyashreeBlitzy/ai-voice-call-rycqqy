@@ -1,0 +1,995 @@
+# =============================================================================
+# Node.js Tutorial Application - Production Docker Compose Configuration
+# =============================================================================
+# Production-hardened Docker Compose orchestration for the Node.js tutorial application
+# implementing comprehensive security policies, performance optimization, monitoring 
+# integration, and operational resilience. Designed for production deployment environments
+# with Express.js 5.1.0, Node.js 22.x LTS, enhanced security measures, external monitoring
+# integration, secrets management, and production-grade infrastructure orchestration.
+#
+# Architecture Features:
+# - Production security architecture with secrets management and network isolation
+# - Comprehensive monitoring stack with Prometheus, Grafana, and system metrics
+# - SSL/TLS encryption with certificate management and HTTPS enforcement
+# - Multi-network architecture with security zone separation
+# - Resource management with limits, reservations, and scaling configuration
+# - Persistent data management with backup integration and disaster recovery
+# - Health monitoring with Kubernetes-compatible probes and service dependencies
+# - Operational procedures for deployment, scaling, and maintenance workflows
+#
+# Security Features:
+# - Docker secrets for sensitive data protection with file-based mounting
+# - Network segmentation preventing lateral movement between service tiers
+# - Non-root user execution with privilege restriction and security contexts
+# - SSL certificate management with Let's Encrypt integration support
+# - Security headers and Content Security Policy implementation
+# - Rate limiting and DDoS protection with comprehensive access control
+#
+# Monitoring Features:
+# - Prometheus metrics collection with 90-day retention and alerting
+# - Grafana dashboards with operational visibility and performance tracking
+# - Node Exporter for system-level metrics and resource monitoring
+# - cAdvisor for container performance and resource utilization tracking
+# - Application health endpoints with comprehensive availability monitoring
+# - Custom metrics collection for business logic and operational insights
+#
+# Educational Value:
+# - Demonstrates production Docker Compose orchestration patterns
+# - Shows comprehensive monitoring and observability implementation
+# - Illustrates security hardening and operational best practices
+# - Provides foundation for cloud platform deployment and scaling
+#
+# Compatible with: Docker Compose v3.8, Node.js 22.x LTS, Express.js 5.1.0
+# =============================================================================
+
+version: '3.8'
+
+# =============================================================================
+# PRODUCTION SERVICES CONFIGURATION
+# =============================================================================
+
+services:
+
+  # ===========================================================================
+  # Production Node.js Application Service
+  # ===========================================================================
+  # Production-hardened Node.js tutorial application with security enhancements,
+  # performance optimization, comprehensive monitoring, and operational resilience
+  nodejs-tutorial-prod:
+    # Multi-stage production build with security scanning and optimization
+    build:
+      context: ../../src/backend
+      dockerfile: Dockerfile
+      target: production
+      args:
+        NODE_VERSION: 22
+        BUILD_DATE: "${BUILD_DATE:-$(date -u +'%Y-%m-%dT%H:%M:%SZ')}"
+        VERSION: "${VERSION:-1.0.0}"
+        GIT_COMMIT: "${GIT_COMMIT:-unknown}"
+        ENVIRONMENT: production
+    
+    # Production container image with version tagging
+    image: nodejs-tutorial:${VERSION:-latest}
+    container_name: ${COMPOSE_PROJECT_NAME:-nodejs-tutorial-prod}_app
+    
+    # Always restart for production availability
+    restart: always
+    
+    # Production deployment configuration with scaling and resource management
+    deploy:
+      replicas: ${APP_REPLICAS:-3}
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.75'
+        reservations:
+          memory: 128M
+          cpus: '0.25'
+      update_config:
+        parallelism: 1
+        delay: 30s
+        failure_action: rollback
+        monitor: 60s
+      restart_policy:
+        condition: any
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+    
+    # Production environment configuration with security and monitoring
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      HOST: 0.0.0.0
+      LOG_LEVEL: warn
+      SERVICE_NAME: nodejs-tutorial-prod
+      SERVICE_VERSION: "${VERSION:-1.0.0}"
+      REDIS_URL: redis://redis-prod:6379
+      TRUST_PROXY: 2
+      ENABLE_METRICS: 'true'
+      PROMETHEUS_ENDPOINT: '/metrics'
+      HEALTH_CHECK_TIMEOUT: 3000
+      RATE_LIMIT_ENABLED: 'true'
+      HELMET_ENABLED: 'true'
+      COMPRESSION_ENABLED: 'true'
+      SSL_ENABLED: "${SSL_ENABLED:-true}"
+      MONITORING_ENABLED: 'true'
+      GRACEFUL_SHUTDOWN_TIMEOUT: 30000
+    
+    # Docker secrets for sensitive application data
+    secrets:
+      - nodejs_app_secret
+      - redis_password
+    
+    # Configuration files for production settings
+    configs:
+      - source: app_production_config
+        target: /usr/src/app/config/production.json
+        mode: 0444
+    
+    # Production health check with comprehensive monitoring
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - |
+          const http=require('http');
+          const options={
+            host:'0.0.0.0',
+            port:3000,
+            path:'/health',
+            timeout:2000,
+            headers:{'User-Agent':'Docker-Prod-Healthcheck'}
+          };
+          const req=http.request(options,(r)=>{
+            process.exit(r.statusCode===200?0:1)
+          });
+          req.on('error',()=>process.exit(1));
+          req.setTimeout(2000,()=>{req.destroy();process.exit(1)});
+          req.end();
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+    
+    # Production logging with compression and rotation
+    logging:
+      driver: json-file
+      options:
+        max-size: 50m
+        max-file: '10'
+        compress: 'true'
+        labels: service,environment,version
+    
+    # Multi-network connectivity for production architecture
+    networks:
+      - nodejs-tutorial-prod-frontend
+      - nodejs-tutorial-prod-backend
+      - nodejs-tutorial-prod-monitoring
+    
+    # Persistent volumes for logs and temporary data
+    volumes:
+      - app-prod-logs:/usr/src/app/logs:rw
+      - app-prod-tmp:/usr/src/app/tmp:rw
+    
+    # Production container labels for operational management
+    labels:
+      app: nodejs-tutorial
+      service: application
+      version: "${VERSION:-1.0.0}"
+      environment: production
+      maintainer: nodejs-tutorial-team
+      security.scan: enabled
+      monitoring.scrape: 'true'
+      monitoring.port: '3000'
+      monitoring.path: '/metrics'
+      backup.enabled: 'true'
+    
+    # Service dependencies with health checking
+    depends_on:
+      redis-prod:
+        condition: service_healthy
+    
+    # Security configuration with privilege restriction
+    security_opt:
+      - no-new-privileges:true
+    read_only: false
+    user: node
+    
+    # Production resource ulimits
+    ulimits:
+      nofile:
+        soft: 1024
+        hard: 2048
+
+  # ===========================================================================
+  # Production Nginx Reverse Proxy Service
+  # ===========================================================================
+  # Production Nginx with SSL termination, security headers, rate limiting,
+  # and comprehensive access control for production traffic handling
+  nginx-prod:
+    # Official Nginx Alpine image with security patches
+    image: nginx:1.24-alpine
+    container_name: ${COMPOSE_PROJECT_NAME:-nodejs-tutorial-prod}_nginx
+    restart: always
+    
+    # HTTP and HTTPS port exposure for production traffic
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+    
+    # Nginx production environment configuration
+    environment:
+      NGINX_ENVSUBST_TEMPLATE_SUFFIX: .template
+      UPSTREAM_SERVERS: nodejs-tutorial-prod:3000
+      SERVER_NAME: "${DOMAIN_NAME:-localhost}"
+      SSL_ENABLED: "${SSL_ENABLED:-true}"
+      RATE_LIMIT_ENABLED: 'true'
+      SECURITY_HEADERS: 'true'
+      PROXY_CACHE_ENABLED: 'true'
+      GZIP_COMPRESSION: 'true'
+    
+    # Production Nginx configuration and SSL certificates
+    configs:
+      - source: nginx_production_config
+        target: /etc/nginx/nginx.conf
+        mode: 0444
+      - source: nginx_security_headers
+        target: /etc/nginx/conf.d/security.conf
+        mode: 0444
+    
+    # SSL certificates and private keys via Docker secrets
+    secrets:
+      - ssl_certificate
+      - ssl_private_key
+    
+    # Persistent volumes for logs, cache, and SSL certificates
+    volumes:
+      - nginx-prod-logs:/var/log/nginx:rw
+      - nginx-prod-cache:/var/cache/nginx:rw
+      - letsencrypt-certs:/etc/letsencrypt:ro
+    
+    # Production Nginx health check
+    healthcheck:
+      test:
+        - CMD
+        - wget
+        - --no-verbose
+        - --tries=1
+        - --spider
+        - http://localhost:80/health
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    
+    # Optimized logging for reverse proxy
+    logging:
+      driver: json-file
+      options:
+        max-size: 20m
+        max-file: '5'
+        compress: 'true'
+    
+    # Frontend and backend network connectivity
+    networks:
+      - nodejs-tutorial-prod-frontend
+      - nodejs-tutorial-prod-backend
+    
+    # Production reverse proxy labels
+    labels:
+      app: nodejs-tutorial
+      service: reverse-proxy
+      version: "${VERSION:-1.0.0}"
+      environment: production
+      ssl.enabled: 'true'
+      security.hardened: 'true'
+      monitoring.enabled: 'true'
+    
+    # Dependency on healthy application service
+    depends_on:
+      nodejs-tutorial-prod:
+        condition: service_healthy
+    
+    # Security hardening for Nginx container
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /var/run
+      - /var/cache/nginx
+    user: nginx
+
+  # ===========================================================================
+  # Production Redis Cache Service
+  # ===========================================================================
+  # Production Redis with persistence, authentication, monitoring, and backup
+  # configuration for high-availability caching and session storage
+  redis-prod:
+    # Official Redis Alpine image with production optimizations
+    image: redis:7-alpine
+    container_name: ${COMPOSE_PROJECT_NAME:-nodejs-tutorial-prod}_redis
+    restart: always
+    
+    # Production Redis server configuration with authentication
+    command:
+      - redis-server
+      - /etc/redis/redis.conf
+    
+    # Redis production configuration file
+    configs:
+      - source: redis_production_config
+        target: /etc/redis/redis.conf
+        mode: 0444
+    
+    # Redis authentication via Docker secrets
+    secrets:
+      - redis_password
+    
+    # Redis production environment
+    environment:
+      REDIS_PASSWORD_FILE: /run/secrets/redis_password
+      REDIS_MAXMEMORY: "${REDIS_MAXMEMORY:-256mb}"
+      REDIS_APPENDONLY: 'yes'
+      REDIS_SAVE: '900 1 300 10 60 10000'
+    
+    # Persistent storage for Redis data and backups
+    volumes:
+      - redis-prod-data:/data:rw
+      - redis-prod-backup:/backup:rw
+    
+    # Production Redis health check with authentication
+    healthcheck:
+      test:
+        - CMD
+        - redis-cli
+        - --no-auth-warning
+        - ping
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    
+    # Minimal Redis logging for production
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '3'
+    
+    # Backend network only for security isolation
+    networks:
+      - nodejs-tutorial-prod-backend
+    
+    # Production Redis labels with backup enabled
+    labels:
+      app: nodejs-tutorial
+      service: cache
+      version: "${VERSION:-1.0.0}"
+      environment: production
+      backup.enabled: 'true'
+      monitoring.scrape: 'true'
+      persistence.enabled: 'true'
+    
+    # Redis security hardening
+    security_opt:
+      - no-new-privileges:true
+    read_only: false
+    user: redis
+    
+    # Redis production ulimits
+    ulimits:
+      nofile:
+        soft: 10240
+        hard: 10240
+
+  # ===========================================================================
+  # Prometheus Monitoring Service
+  # ===========================================================================
+  # Prometheus metrics collection, alerting, and long-term storage for
+  # comprehensive production monitoring and observability
+  prometheus:
+    # Official Prometheus image with production configuration
+    image: prom/prometheus:latest
+    container_name: ${COMPOSE_PROJECT_NAME:-nodejs-tutorial-prod}_prometheus
+    restart: always
+    
+    # Prometheus web UI port exposure
+    ports:
+      - "${PROMETHEUS_PORT:-9090}:9090"
+    
+    # Production Prometheus server command with retention and API settings
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=${PROMETHEUS_RETENTION:-90d}
+      - --storage.tsdb.retention.size=${PROMETHEUS_SIZE:-10GB}
+      - --web.console.libraries=/etc/prometheus/console_libraries
+      - --web.console.templates=/etc/prometheus/consoles
+      - --web.enable-lifecycle
+      - --web.enable-admin-api
+      - --log.level=info
+      - --web.external-url=http://localhost:${PROMETHEUS_PORT:-9090}
+    
+    # Prometheus configuration files and alerting rules
+    configs:
+      - source: prometheus_config
+        target: /etc/prometheus/prometheus.yml
+        mode: 0444
+      - source: prometheus_alert_rules
+        target: /etc/prometheus/alert_rules.yml
+        mode: 0444
+    
+    # Persistent storage for Prometheus data and configuration
+    volumes:
+      - prometheus-prod-data:/prometheus:rw
+      - prometheus-prod-config:/etc/prometheus:rw
+    
+    # Monitoring and backend network connectivity
+    networks:
+      - nodejs-tutorial-prod-monitoring
+      - nodejs-tutorial-prod-backend
+    
+    # Prometheus health check
+    healthcheck:
+      test:
+        - CMD
+        - wget
+        - --no-verbose
+        - --tries=1
+        - --spider
+        - http://localhost:9090/-/healthy
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    
+    # Production Prometheus labels
+    labels:
+      app: nodejs-tutorial
+      service: monitoring
+      component: prometheus
+      version: "${VERSION:-1.0.0}"
+      environment: production
+      backup.enabled: 'true'
+    
+    # Prometheus dependency on application service
+    depends_on:
+      nodejs-tutorial-prod:
+        condition: service_healthy
+    
+    # Prometheus security configuration
+    security_opt:
+      - no-new-privileges:true
+    read_only: false
+    user: nobody
+
+  # ===========================================================================
+  # Grafana Visualization Service
+  # ===========================================================================
+  # Grafana dashboards and visualization platform for production monitoring,
+  # alerting, and operational visibility with comprehensive dashboard management
+  grafana:
+    # Official Grafana image with plugin support
+    image: grafana/grafana:latest
+    container_name: ${COMPOSE_PROJECT_NAME:-nodejs-tutorial-prod}_grafana
+    restart: always
+    
+    # Grafana web interface port exposure
+    ports:
+      - "${GRAFANA_PORT:-3001}:3000"
+    
+    # Production Grafana environment with security hardening
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD__FILE: /run/secrets/grafana_admin_password
+      GF_USERS_ALLOW_SIGN_UP: 'false'
+      GF_SECURITY_ALLOW_EMBEDDING: 'false'
+      GF_SECURITY_COOKIE_SECURE: 'true'
+      GF_SECURITY_COOKIE_SAMESITE: 'strict'
+      GF_SERVER_PROTOCOL: http
+      GF_SERVER_DOMAIN: "${GRAFANA_DOMAIN:-localhost}"
+      GF_INSTALL_PLUGINS: grafana-piechart-panel,grafana-worldmap-panel,grafana-clock-panel
+      GF_SECURITY_DISABLE_GRAVATAR: 'true'
+      GF_ANALYTICS_REPORTING_ENABLED: 'false'
+      GF_ANALYTICS_CHECK_FOR_UPDATES: 'false'
+    
+    # Grafana authentication via Docker secrets
+    secrets:
+      - grafana_admin_password
+      - grafana_database_password
+    
+    # Grafana configuration files for datasources and dashboards
+    configs:
+      - source: grafana_datasources
+        target: /etc/grafana/provisioning/datasources/prometheus.yml
+        mode: 0444
+      - source: grafana_dashboards_config
+        target: /etc/grafana/provisioning/dashboards/dashboard.yml
+        mode: 0444
+    
+    # Persistent storage for Grafana data and dashboards
+    volumes:
+      - grafana-prod-data:/var/lib/grafana:rw
+      - grafana-prod-dashboards:/etc/grafana/dashboards:rw
+    
+    # Monitoring and frontend network connectivity
+    networks:
+      - nodejs-tutorial-prod-monitoring
+      - nodejs-tutorial-prod-frontend
+    
+    # Grafana health check
+    healthcheck:
+      test:
+        - CMD
+        - wget
+        - --no-verbose
+        - --tries=1
+        - --spider
+        - http://localhost:3000/api/health
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    
+    # Production Grafana labels
+    labels:
+      app: nodejs-tutorial
+      service: monitoring
+      component: grafana
+      version: "${VERSION:-1.0.0}"
+      environment: production
+      backup.enabled: 'true'
+    
+    # Grafana dependency on Prometheus service
+    depends_on:
+      prometheus:
+        condition: service_healthy
+    
+    # Grafana security configuration
+    security_opt:
+      - no-new-privileges:true
+    read_only: false
+    user: grafana
+
+  # ===========================================================================
+  # Node Exporter Service
+  # ===========================================================================
+  # System-level metrics collection including CPU, memory, disk, and network
+  # statistics for comprehensive infrastructure monitoring and capacity planning
+  node-exporter:
+    # Official Prometheus Node Exporter image
+    image: prom/node-exporter:latest
+    container_name: ${COMPOSE_PROJECT_NAME:-nodejs-tutorial-prod}_node_exporter
+    restart: always
+    
+    # Node exporter command with host system access
+    command:
+      - --path.procfs=/host/proc
+      - --path.rootfs=/rootfs
+      - --path.sysfs=/host/sys
+      - --collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)
+      - --collector.netdev.device-exclude=^lo$$
+      - --collector.diskstats.ignored-devices=^(ram|loop|fd|(h|s|v)d[a-z]|nvme\\d+n\\d+p)\\d+$$
+    
+    # Host system volumes for metrics collection
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    
+    # Monitoring network connectivity
+    networks:
+      - nodejs-tutorial-prod-monitoring
+    
+    # Node exporter labels
+    labels:
+      app: nodejs-tutorial
+      service: monitoring
+      component: node-exporter
+      environment: production
+    
+    # Node exporter security configuration
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    user: nobody
+
+  # ===========================================================================
+  # cAdvisor Container Metrics Service
+  # ===========================================================================
+  # Container performance monitoring and resource utilization metrics for
+  # Docker container monitoring and capacity planning
+  cadvisor:
+    # Official cAdvisor image
+    image: gcr.io/cadvisor/cadvisor:latest
+    container_name: ${COMPOSE_PROJECT_NAME:-nodejs-tutorial-prod}_cadvisor
+    restart: always
+    privileged: true
+    
+    # cAdvisor devices access for container monitoring
+    devices:
+      - /dev/kmsg:/dev/kmsg
+    
+    # Docker and system volumes for container metrics collection
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
+      - /cgroup:/cgroup:ro
+    
+    # cAdvisor command with optimized metrics collection
+    command:
+      - --housekeeping_interval=30s
+      - --max_housekeeping_interval=35s
+      - --event_storage_event_limit=default=0
+      - --event_storage_age_limit=default=0
+      - --disable_metrics=percpu,sched,tcp,udp,disk,diskIO,accelerator,hugetlb,referenced_memory,cpu_topology,resctrl
+      - --docker_only=true
+      - --store_container_labels=false
+    
+    # Monitoring network connectivity
+    networks:
+      - nodejs-tutorial-prod-monitoring
+    
+    # cAdvisor labels
+    labels:
+      app: nodejs-tutorial
+      service: monitoring
+      component: cadvisor
+      environment: production
+
+# =============================================================================
+# PRODUCTION NETWORKS CONFIGURATION
+# =============================================================================
+# Multi-network architecture with security zone separation and controlled
+# communication paths for production security and network segmentation
+
+networks:
+  
+  # Frontend network for client-facing services and load balancers
+  nodejs-tutorial-prod-frontend:
+    name: ${COMPOSE_PROJECT_NAME:-nodejs-tutorial-prod}_frontend
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.30.1.0/24
+          gateway: 172.30.1.1
+    driver_opts:
+      com.docker.network.bridge.name: br-nt-fe-prod
+      com.docker.network.bridge.enable_icc: 'false'
+      com.docker.network.bridge.enable_ip_masquerade: 'true'
+    labels:
+      app: nodejs-tutorial
+      tier: frontend
+      environment: production
+      security.zone: dmz
+  
+  # Backend network for internal service communication and data layer
+  nodejs-tutorial-prod-backend:
+    name: ${COMPOSE_PROJECT_NAME:-nodejs-tutorial-prod}_backend
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.30.2.0/24
+          gateway: 172.30.2.1
+    driver_opts:
+      com.docker.network.bridge.name: br-nt-be-prod
+      com.docker.network.bridge.enable_icc: 'true'
+    labels:
+      app: nodejs-tutorial
+      tier: backend
+      environment: production
+      security.zone: internal
+  
+  # Monitoring network for observability and metrics collection
+  nodejs-tutorial-prod-monitoring:
+    name: ${COMPOSE_PROJECT_NAME:-nodejs-tutorial-prod}_monitoring
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.30.3.0/24
+          gateway: 172.30.3.1
+    driver_opts:
+      com.docker.network.bridge.name: br-nt-mon-prod
+    labels:
+      app: nodejs-tutorial
+      tier: monitoring
+      environment: production
+      security.zone: management
+
+# =============================================================================
+# PRODUCTION VOLUMES CONFIGURATION
+# =============================================================================
+# Persistent volume management for data storage, logging, backup, and
+# configuration with proper labeling for operational management
+
+volumes:
+  
+  # Application logs volume with external storage binding
+  app-prod-logs:
+    name: ${COMPOSE_PROJECT_NAME:-nodejs-tutorial-prod}_app_logs
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: "${PROD_LOG_DIR:-./logs/production}"
+    labels:
+      app: nodejs-tutorial
+      service: application
+      purpose: application-logs
+      environment: production
+      backup.enabled: 'true'
+  
+  # Application temporary files volume
+  app-prod-tmp:
+    name: ${COMPOSE_PROJECT_NAME:-nodejs-tutorial-prod}_app_tmp
+    driver: local
+    labels:
+      app: nodejs-tutorial
+      service: application
+      purpose: temporary-files
+      environment: production
+  
+  # Nginx logs volume with external storage binding
+  nginx-prod-logs:
+    name: ${COMPOSE_PROJECT_NAME:-nodejs-tutorial-prod}_nginx_logs
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: "${PROD_LOG_DIR:-./logs/production}/nginx"
+    labels:
+      app: nodejs-tutorial
+      service: reverse-proxy
+      purpose: nginx-logs
+      environment: production
+      backup.enabled: 'true'
+  
+  # Nginx cache volume for static content caching
+  nginx-prod-cache:
+    name: ${COMPOSE_PROJECT_NAME:-nodejs-tutorial-prod}_nginx_cache
+    driver: local
+    labels:
+      app: nodejs-tutorial
+      service: reverse-proxy
+      purpose: nginx-cache
+      environment: production
+  
+  # Redis data volume with persistence and backup binding
+  redis-prod-data:
+    name: ${COMPOSE_PROJECT_NAME:-nodejs-tutorial-prod}_redis_data
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: "${REDIS_DATA_DIR:-./data/redis/production}"
+    labels:
+      app: nodejs-tutorial
+      service: cache
+      purpose: redis-persistence
+      environment: production
+      backup.enabled: 'true'
+      backup.schedule: daily
+  
+  # Redis backup volume for backup storage
+  redis-prod-backup:
+    name: ${COMPOSE_PROJECT_NAME:-nodejs-tutorial-prod}_redis_backup
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: "${BACKUP_DIR:-./backup/redis}"
+    labels:
+      app: nodejs-tutorial
+      service: cache
+      purpose: redis-backup
+      environment: production
+  
+  # Prometheus data volume with retention and backup
+  prometheus-prod-data:
+    name: ${COMPOSE_PROJECT_NAME:-nodejs-tutorial-prod}_prometheus_data
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: "${PROMETHEUS_DATA_DIR:-./data/prometheus}"
+    labels:
+      app: nodejs-tutorial
+      service: monitoring
+      component: prometheus
+      purpose: metrics-storage
+      environment: production
+      backup.enabled: 'true'
+  
+  # Prometheus configuration volume
+  prometheus-prod-config:
+    name: ${COMPOSE_PROJECT_NAME:-nodejs-tutorial-prod}_prometheus_config
+    driver: local
+    labels:
+      app: nodejs-tutorial
+      service: monitoring
+      component: prometheus
+      purpose: configuration
+      environment: production
+  
+  # Grafana data volume with dashboard persistence
+  grafana-prod-data:
+    name: ${COMPOSE_PROJECT_NAME:-nodejs-tutorial-prod}_grafana_data
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: "${GRAFANA_DATA_DIR:-./data/grafana}"
+    labels:
+      app: nodejs-tutorial
+      service: monitoring
+      component: grafana
+      purpose: dashboard-storage
+      environment: production
+      backup.enabled: 'true'
+  
+  # Grafana dashboards volume
+  grafana-prod-dashboards:
+    name: ${COMPOSE_PROJECT_NAME:-nodejs-tutorial-prod}_grafana_dashboards
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: "${DASHBOARD_DIR:-./monitoring/grafana/dashboards}"
+    labels:
+      app: nodejs-tutorial
+      service: monitoring
+      component: grafana
+      purpose: dashboard-definitions
+      environment: production
+  
+  # SSL certificates volume for HTTPS encryption
+  letsencrypt-certs:
+    name: ${COMPOSE_PROJECT_NAME:-nodejs-tutorial-prod}_ssl_certs
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: "${SSL_CERT_DIR:-./ssl/letsencrypt}"
+    labels:
+      app: nodejs-tutorial
+      service: reverse-proxy
+      purpose: ssl-certificates
+      environment: production
+      security.sensitive: 'true'
+
+# =============================================================================
+# PRODUCTION SECRETS CONFIGURATION
+# =============================================================================
+# Docker secrets for sensitive data protection with file-based mounting
+# and restricted access for production security management
+
+secrets:
+  
+  # Application secret for session management and encryption
+  nodejs_app_secret:
+    file: "${SECRETS_DIR:-./secrets}/app_secret.txt"
+  
+  # Redis authentication password
+  redis_password:
+    file: "${SECRETS_DIR:-./secrets}/redis_password.txt"
+  
+  # SSL certificate for HTTPS encryption
+  ssl_certificate:
+    file: "${SSL_CERT_DIR:-./ssl}/certificate.crt"
+  
+  # SSL private key for certificate decryption
+  ssl_private_key:
+    file: "${SSL_CERT_DIR:-./ssl}/private.key"
+  
+  # Grafana admin password for dashboard access
+  grafana_admin_password:
+    file: "${SECRETS_DIR:-./secrets}/grafana_admin_password.txt"
+  
+  # Grafana database password for data storage
+  grafana_database_password:
+    file: "${SECRETS_DIR:-./secrets}/grafana_db_password.txt"
+
+# =============================================================================
+# PRODUCTION CONFIGS CONFIGURATION
+# =============================================================================
+# Docker configs for configuration file management with version control
+# and external file binding for production configuration management
+
+configs:
+  
+  # Application production configuration
+  app_production_config:
+    file: "${CONFIG_DIR:-./config}/production.json"
+  
+  # Nginx production server configuration
+  nginx_production_config:
+    file: "${CONFIG_DIR:-./config}/nginx/nginx.prod.conf"
+  
+  # Nginx security headers configuration
+  nginx_security_headers:
+    file: "${CONFIG_DIR:-./config}/nginx/security.conf"
+  
+  # Redis production server configuration
+  redis_production_config:
+    file: "${CONFIG_DIR:-./config}/redis/redis.prod.conf"
+  
+  # Prometheus server configuration
+  prometheus_config:
+    file: "${CONFIG_DIR:-./monitoring}/prometheus.yml"
+  
+  # Prometheus alerting rules configuration
+  prometheus_alert_rules:
+    file: "${CONFIG_DIR:-./monitoring}/alert_rules.yml"
+  
+  # Grafana datasources provisioning configuration
+  grafana_datasources:
+    file: "${CONFIG_DIR:-./monitoring}/grafana/provisioning/datasources/prometheus.yml"
+  
+  # Grafana dashboards provisioning configuration
+  grafana_dashboards_config:
+    file: "${CONFIG_DIR:-./monitoring}/grafana/provisioning/dashboards/dashboard.yml"
+
+# =============================================================================
+# PRODUCTION DEPLOYMENT INSTRUCTIONS
+# =============================================================================
+#
+# PRODUCTION STARTUP PROCEDURE:
+# 1. Set production environment variables:
+#    export VERSION=$(git rev-parse HEAD)
+#    export COMPOSE_PROJECT_NAME=nodejs-tutorial-prod
+#    export DOMAIN_NAME=tutorial.production.com
+#    export SSL_ENABLED=true
+#
+# 2. Create required directories and secrets:
+#    mkdir -p ./secrets ./config ./ssl ./logs/production ./data/{redis,prometheus,grafana}
+#    openssl rand -base64 32 > ./secrets/app_secret.txt
+#    openssl rand -base64 32 > ./secrets/redis_password.txt
+#    openssl rand -base64 32 > ./secrets/grafana_admin_password.txt
+#
+# 3. Deploy production infrastructure:
+#    docker-compose -f docker-compose.prod.yml up -d
+#
+# 4. Verify deployment health:
+#    docker-compose -f docker-compose.prod.yml ps --filter health=healthy
+#    curl -f https://${DOMAIN_NAME}/hello
+#    curl -f http://localhost:9090/-/healthy
+#    curl -f http://localhost:3001/api/health
+#
+# SCALING PROCEDURES:
+# export APP_REPLICAS=5
+# docker-compose -f docker-compose.prod.yml up -d --scale nodejs-tutorial-prod=5
+#
+# BACKUP PROCEDURES:
+# docker-compose -f docker-compose.prod.yml exec redis-prod redis-cli BGSAVE
+# tar -czf backup-$(date +%Y%m%d).tar.gz logs/ data/
+#
+# MONITORING ACCESS:
+# Prometheus: http://localhost:9090
+# Grafana: http://localhost:3001 (admin:password from secrets)
+# Application: https://${DOMAIN_NAME}/hello
+# Health Checks: https://${DOMAIN_NAME}/health
+#
+# =============================================================================
+# PRODUCTION ENVIRONMENT VARIABLES
+# =============================================================================
+#
+# COMPOSE_PROJECT_NAME: Project name (default: nodejs-tutorial-prod)
+# VERSION: Application version (default: latest)
+# DOMAIN_NAME: Production domain (default: localhost)
+# SSL_ENABLED: Enable SSL/TLS (default: true)
+# APP_REPLICAS: Application instances (default: 3)
+# REDIS_MAXMEMORY: Redis memory limit (default: 256mb)
+# PROMETHEUS_RETENTION: Metrics retention (default: 90d)
+# SECRETS_DIR: Secrets directory (default: ./secrets)
+# CONFIG_DIR: Configuration directory (default: ./config)
+# SSL_CERT_DIR: SSL certificates directory (default: ./ssl)
+# PROD_LOG_DIR: Production logs directory (default: ./logs/production)
+# BACKUP_DIR: Backup storage directory (default: ./backup)
+#
+# =============================================================================

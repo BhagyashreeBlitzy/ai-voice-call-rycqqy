@@ -1,0 +1,366 @@
+{{/*
+Kubernetes Ingress Template for Node.js Tutorial Application with Express.js 5.1.0
+==================================================================================
+
+This Helm template generates production-ready Kubernetes Ingress manifests for the Node.js tutorial 
+application using Go templating syntax and Helm built-in objects. Creates external HTTP traffic routing 
+with dynamic configuration from values.yml, comprehensive SSL/TLS termination, path-based routing, 
+and educational metadata. Implements NGINX Ingress Controller integration patterns while enabling 
+external access to the Express.js 5.1.0 application endpoints including /hello, /health, /livez, 
+and /readyz through conditional templating and multi-environment support.
+
+Features:
+- Dynamic ingress configuration through Helm values with environment-specific overrides and conditional rendering
+- Production-ready external traffic routing with NGINX Ingress Controller integration and load balancing
+- Comprehensive SSL/TLS termination with certificate management and automatic HTTPS redirection
+- Path-based routing for all application endpoints with proper backend service coordination
+- Educational Helm templating demonstrating Go template syntax, conditional logic, and helper functions
+- Multi-environment deployment support with values-based configuration management and template inheritance
+- Security-compliant ingress configuration with proper annotations and traffic control policies
+- Monitoring integration with Prometheus service discovery and ingress-level metrics collection
+
+Template Objects:
+- .Values.ingress: Ingress-specific configuration including hosts, paths, TLS, and controller settings
+- .Values.service: Backend service configuration for port mapping and service coordination
+- .Chart: Chart metadata from Chart.yml for consistent resource naming and versioning
+- .Release: Deployment-specific information including namespace, name, and revision tracking
+- .Values.monitoring: Monitoring integration settings for Prometheus and observability
+
+Educational Concepts:
+- Helm Go template syntax with built-in functions, conditional rendering, and iterative constructs
+- Kubernetes Ingress resource structure with networking specification and traffic routing
+- SSL/TLS certificate integration with Kubernetes secrets and certificate management
+- NGINX Ingress Controller annotations for traffic management, security, and performance
+- Template helper functions for consistent resource naming, labeling, and operational patterns
+- Multi-host and multi-path routing configuration through dynamic template generation
+- Values-based configuration management with environment-specific overrides and template inheritance
+- Production-ready ingress patterns with security, monitoring, and operational integration
+*/}}
+
+{{/*
+Conditional Ingress Creation with Environment-Based Enablement
+*/}}
+{{- if .Values.ingress.enabled }}
+
+{{/*
+Template Header with API Version and Resource Kind
+*/}}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+
+{{/*
+Metadata Section with Dynamic Naming, Comprehensive Labeling, and Educational Annotations
+*/}}
+metadata:
+  name: {{ include "nodejs-tutorial.ingressName" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "nodejs-tutorial.ingressLabels" . | nindent 4 }}
+    app.kubernetes.io/component: ingress
+    networking.kubernetes.io/ingress-class: {{ .Values.ingress.className | default "nginx" }}
+  annotations:
+    # Ingress management and deployment tracking
+    helm.sh/managed-by: {{ .Release.Service }}
+    helm.sh/chart-version: {{ .Chart.Version }}
+    helm.sh/app-version: {{ .Chart.AppVersion }}
+    helm.sh/release-revision: "{{ .Release.Revision }}"
+    
+    # Educational and tutorial metadata for learning context
+    tutorial.example.com/framework: "express"
+    tutorial.example.com/framework-version: "5.1.0"
+    tutorial.example.com/node-version: "22"
+    tutorial.example.com/endpoints: "/hello,/health,/livez,/readyz"
+    tutorial.example.com/concepts: "helm-ingress-templates,external-routing,ssl-termination,path-routing"
+    tutorial.example.com/learning-objectives: "helm-ingress-templating,dynamic-ssl-configuration,multi-host-routing,values-interpolation"
+    
+    # Ingress configuration and operational metadata
+    ingress.example.com/description: "Helm-generated Kubernetes ingress for Node.js tutorial application external access with Express.js 5.1.0"
+    ingress.example.com/backend-service: {{ include "nodejs-tutorial.fullname" . | quote }}
+    ingress.example.com/backend-port: {{ .Values.service.port | default 80 | quote }}
+    ingress.example.com/routing-strategy: "path-based"
+    
+    {{- if .Values.ingress.tls }}
+    # SSL/TLS configuration annotations for secure connections
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/ssl-protocols: "TLSv1.2 TLSv1.3"
+    nginx.ingress.kubernetes.io/ssl-ciphers: "ECDHE-ECDSA-AES128-GCM-SHA256,ECDHE-RSA-AES128-GCM-SHA256,ECDHE-ECDSA-AES256-GCM-SHA384,ECDHE-RSA-AES256-GCM-SHA384"
+    {{- end }}
+    
+    # NGINX Ingress Controller specific annotations for performance and security
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
+    nginx.ingress.kubernetes.io/proxy-body-size: {{ .Values.ingress.maxBodySize | default "1m" | quote }}
+    nginx.ingress.kubernetes.io/proxy-read-timeout: {{ .Values.ingress.readTimeout | default "30" | quote }}
+    nginx.ingress.kubernetes.io/proxy-send-timeout: {{ .Values.ingress.sendTimeout | default "30" | quote }}
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: {{ .Values.ingress.connectTimeout | default "5" | quote }}
+    nginx.ingress.kubernetes.io/upstream-hash-by: {{ .Values.ingress.upstreamHashBy | default "$remote_addr" | quote }}
+    
+    # Rate limiting and security annotations for DoS protection
+    nginx.ingress.kubernetes.io/rate-limit: {{ .Values.ingress.rateLimit | default "100" | quote }}
+    nginx.ingress.kubernetes.io/rate-limit-window: {{ .Values.ingress.rateLimitWindow | default "1m" | quote }}
+    nginx.ingress.kubernetes.io/limit-connections: {{ .Values.ingress.limitConnections | default "10" | quote }}
+    
+    # Security headers configuration for comprehensive protection
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      more_set_headers "X-Frame-Options: SAMEORIGIN";
+      more_set_headers "X-Content-Type-Options: nosniff";
+      more_set_headers "X-XSS-Protection: 1; mode=block";
+      more_set_headers "Referrer-Policy: strict-origin-when-cross-origin";
+      more_set_headers "Permissions-Policy: geolocation=(), microphone=(), camera=()";
+    
+    {{- if .Values.monitoring.enabled }}
+    # Monitoring integration annotations for Prometheus service discovery
+    prometheus.io/scrape: "true"
+    prometheus.io/path: "/health"
+    prometheus.io/port: {{ .Values.service.port | default 80 | quote }}
+    monitoring.example.com/enabled: "true"
+    monitoring.example.com/ingress-metrics: "true"
+    {{- end }}
+    
+    {{- if .Values.cloudProvider.aws.enabled }}
+    # AWS Application Load Balancer (ALB) annotations
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/certificate-arn: {{ .Values.cloudProvider.aws.certificateArn | quote }}
+    {{- end }}
+    
+    {{- if .Values.cloudProvider.gcp.enabled }}
+    # Google Cloud Platform Load Balancer annotations
+    kubernetes.io/ingress.class: gce
+    cloud.google.com/neg: '{"ingress": true}'
+    ingress.gcp.kubernetes.io/pre-shared-cert: {{ .Values.cloudProvider.gcp.certificateName | quote }}
+    {{- end }}
+    
+    {{- if .Values.cloudProvider.azure.enabled }}
+    # Microsoft Azure Application Gateway annotations
+    kubernetes.io/ingress.class: azure/application-gateway
+    appgw.ingress.kubernetes.io/certificate-name: {{ .Values.cloudProvider.azure.certificateName | quote }}
+    {{- end }}
+    
+    {{- with .Values.ingress.annotations }}
+    # Additional custom ingress annotations from values configuration
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+
+{{/*
+Ingress Specification with Traffic Routing, TLS Configuration, and Backend Service Coordination
+*/}}
+spec:
+  # Ingress controller class configuration with environment-specific defaults
+  ingressClassName: {{ .Values.ingress.className | default "nginx" }}
+  
+  {{- if .Values.ingress.tls }}
+  # TLS configuration section with certificate secret management
+  tls:
+  {{- range .Values.ingress.tls }}
+    - secretName: {{ .secretName }}
+      hosts:
+      {{- range .hosts }}
+        - {{ . | quote }}
+      {{- end }}
+  {{- end }}
+  {{- end }}
+  
+  # Traffic routing rules with multi-host and multi-path support
+  rules:
+  {{- range .Values.ingress.hosts }}
+    - host: {{ .host | quote }}
+      http:
+        paths:
+        {{- if .paths }}
+        {{- range .paths }}
+        - path: {{ .path }}
+          pathType: {{ .pathType | default "Prefix" }}
+          backend:
+            service:
+              name: {{ include "nodejs-tutorial.fullname" $ }}
+              port:
+                number: {{ $.Values.service.port | default 80 }}
+        {{- end }}
+        {{- else }}
+        # Default application paths when no custom paths are specified
+        {{- include "nodejs-tutorial.defaultIngressPaths" $ | nindent 8 }}
+        {{- end }}
+  {{- end }}
+
+{{- end }}
+
+{{/*
+=================================================================================
+HELM TEMPLATE HELPER FUNCTIONS FOR INGRESS CONFIGURATION
+=================================================================================
+
+These helper functions provide consistent ingress configuration, naming, and labeling
+patterns across all Helm templates in the chart. They demonstrate advanced Helm templating
+techniques and ensure operational consistency with educational value.
+*/}}
+
+{{/*
+Generate ingress name with override capability for custom naming requirements
+*/}}
+{{- define "nodejs-tutorial.ingressName" -}}
+{{- if .Values.ingress.nameOverride }}
+{{- .Values.ingress.nameOverride | trunc 63 | trimSuffix "-" }}
+{{- else }}
+{{- include "nodejs-tutorial.fullname" . }}
+{{- end }}
+{{- end }}
+
+{{/*
+Generate comprehensive ingress labels including component identification and custom labels
+*/}}
+{{- define "nodejs-tutorial.ingressLabels" -}}
+{{ include "nodejs-tutorial.labels" . }}
+app.kubernetes.io/component: ingress
+{{- if .Values.ingress.labels }}
+{{ .Values.ingress.labels | toYaml }}
+{{- end }}
+{{- end }}
+
+{{/*
+Generate default application paths for ingress routing when no custom paths are specified
+*/}}
+{{- define "nodejs-tutorial.defaultIngressPaths" -}}
+- path: /
+  pathType: Prefix
+  backend:
+    service:
+      name: {{ include "nodejs-tutorial.fullname" . }}
+      port:
+        number: {{ .Values.service.port | default 80 }}
+- path: /hello
+  pathType: Prefix
+  backend:
+    service:
+      name: {{ include "nodejs-tutorial.fullname" . }}
+      port:
+        number: {{ .Values.service.port | default 80 }}
+- path: /health
+  pathType: Prefix
+  backend:
+    service:
+      name: {{ include "nodejs-tutorial.fullname" . }}
+      port:
+        number: {{ .Values.service.port | default 80 }}
+- path: /livez
+  pathType: Prefix
+  backend:
+    service:
+      name: {{ include "nodejs-tutorial.fullname" . }}
+      port:
+        number: {{ .Values.service.port | default 80 }}
+- path: /readyz
+  pathType: Prefix
+  backend:
+    service:
+      name: {{ include "nodejs-tutorial.fullname" . }}
+      port:
+        number: {{ .Values.service.port | default 80 }}
+{{- end }}
+
+{{/*
+=================================================================================
+EDUCATIONAL INGRESS CONFIGURATION EXAMPLES AND DOCUMENTATION
+=================================================================================
+
+Multi-Environment Ingress Configuration Examples:
+
+1. Development Environment (Local):
+   ingress:
+     enabled: false  # No external access needed for local development
+     className: nginx
+
+2. Staging Environment:
+   ingress:
+     enabled: true
+     className: nginx
+     hosts:
+       - host: staging.nodejs-tutorial.example.com
+         paths:
+           - path: /
+             pathType: Prefix
+     tls:
+       - secretName: staging-nodejs-tutorial-tls
+         hosts:
+           - staging.nodejs-tutorial.example.com
+
+3. Production Environment:
+   ingress:
+     enabled: true
+     className: nginx
+     hosts:
+       - host: nodejs-tutorial.example.com
+         paths:
+           - path: /
+             pathType: Prefix
+       - host: api.nodejs-tutorial.example.com
+         paths:
+           - path: /hello
+             pathType: Prefix
+           - path: /health
+             pathType: Prefix
+     tls:
+       - secretName: nodejs-tutorial-tls
+         hosts:
+           - nodejs-tutorial.example.com
+           - api.nodejs-tutorial.example.com
+
+Path Routing Patterns:
+- Root path (/): Routes all traffic to the application for catch-all behavior
+- Specific endpoint (/hello): Routes tutorial endpoint requests for targeted access
+- Health endpoints (/health, /livez, /readyz): Routes monitoring and health check traffic
+- API versioning (/v1/hello): Routes versioned API endpoints for backward compatibility
+
+SSL/TLS Certificate Management:
+- cert-manager integration: Automatic certificate provisioning and renewal
+- Manual certificates: kubectl create secret tls <secret-name> --cert=cert.pem --key=key.pem
+- Let's Encrypt: Automated certificate management with cert-manager annotations
+- Cloud provider certificates: Integration with AWS ACM, GCP SSL, Azure Key Vault
+
+NGINX Ingress Controller Features:
+- Rate limiting: Protection against DoS attacks and traffic spikes
+- SSL termination: Offloads encryption/decryption from backend services
+- Load balancing: Distributes traffic across multiple backend pods
+- Header manipulation: Adds security headers and custom request/response headers
+- Rewrite rules: URL rewriting and redirection for traffic management
+
+Monitoring and Observability:
+- Prometheus metrics: Ingress-level traffic metrics and performance monitoring
+- Access logging: Detailed request logging for security and performance analysis
+- Error tracking: 4xx/5xx error monitoring and alerting
+- Performance metrics: Response time, throughput, and availability monitoring
+
+Security Considerations:
+- SSL/TLS only: Forces HTTPS redirection for secure communication
+- Security headers: Comprehensive security headers for browser protection
+- Rate limiting: Configurable rate limits to prevent abuse
+- IP whitelisting: Restrict access to specific IP ranges or CIDR blocks
+- Authentication: Integration with OAuth, OIDC, or basic authentication
+
+Cloud Provider Integration:
+- AWS ALB: Application Load Balancer integration with target groups
+- Google Cloud Load Balancer: NEG integration with ingress controllers
+- Azure Application Gateway: Backend configuration and SSL termination
+- Multi-cloud portability: Provider-agnostic ingress configuration
+
+Troubleshooting Commands:
+- kubectl get ingress -l app.kubernetes.io/name=nodejs-tutorial
+- kubectl describe ingress <ingress-name>
+- kubectl get events --field-selector involvedObject.kind=Ingress
+- curl -v -H "Host: <hostname>" http://<ingress-ip>/hello
+- kubectl logs -l app.kubernetes.io/name=ingress-nginx
+
+Performance Optimization:
+- Connection pooling: Efficient connection reuse for backend communication
+- Caching headers: Proper cache control for static and dynamic content
+- Compression: Response compression for bandwidth optimization
+- Keep-alive: Persistent connections for improved performance
+- Upstream load balancing: Advanced load balancing algorithms
+
+Template Testing and Validation:
+- helm template my-release . --debug --values values.yaml
+- helm install my-release . --dry-run --debug --values values-prod.yaml
+- kubectl apply --dry-run=client -f <generated-ingress.yaml>
+- kubectl explain ingress.spec.rules.http.paths
+*/}}

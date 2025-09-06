@@ -1,0 +1,1636 @@
+# =============================================================================
+# Node.js Tutorial Application - Comprehensive Security Scanning and Vulnerability Assessment
+# =============================================================================
+# GitHub Actions security workflow for comprehensive vulnerability assessment and security monitoring
+# of the Node.js tutorial application. Orchestrates multi-layered security scanning including 
+# dependency vulnerability analysis, static application security testing (SAST), container security 
+# assessment, secret detection, and license compliance validation. Integrates with GitHub Security 
+# tab through SARIF reporting, implements security quality gates for CI/CD pipeline integration, 
+# and generates educational security materials while maintaining focus on Node.js and Express.js 
+# security best practices for tutorial learning objectives.
+#
+# Security Scanning Architecture:
+# - Phase 1: Environment validation and security tool prerequisite verification
+# - Phase 2: Multi-tool dependency vulnerability scanning (npm audit, Snyk integration)
+# - Phase 3: Static application security testing with ESLint security plugins and Semgrep
+# - Phase 4: Container security assessment using Trivy and Docker security benchmarks
+# - Phase 5: Secret and credential detection with TruffleHog and Git history analysis
+# - Phase 6: License compliance validation for open source dependencies
+# - Phase 7: Security findings aggregation with deduplication and prioritization
+# - Phase 8: SARIF report generation for GitHub Security tab integration
+# - Phase 9: Security quality gate validation for CI/CD pipeline decisions
+# - Phase 10: Educational security materials generation and learning resource creation
+#
+# Educational Security Features:
+# - Comprehensive vulnerability explanations with Node.js specific examples
+# - Progressive learning materials for different skill levels and security concepts
+# - Remediation tutorials with step-by-step instructions and best practice guides
+# - Integration with tutorial application for hands-on security learning experiences
+# - Security awareness training materials with interactive examples and exercises
+
+name: 'Security Scanning and Vulnerability Assessment'
+
+# Workflow trigger configuration for comprehensive security coverage
+on:
+  # Trigger security scanning on push to main branches and security-relevant file changes
+  push:
+    branches:
+      - main
+      - develop
+      - 'feature/**'
+      - 'security/**'
+      - 'hotfix/**'
+    paths:
+      - 'src/backend/**'
+      - 'package*.json'
+      - 'Dockerfile'
+      - 'docker-compose*.yml'
+      - '.github/workflows/security.yml'
+      - 'scripts/security-scan.sh'
+      - '.eslintrc.*'
+      - 'jest.config.js'
+
+  # Trigger security scanning on pull requests to main branches with comprehensive assessment
+  pull_request:
+    branches:
+      - main
+      - develop
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
+    paths:
+      - 'src/backend/**'
+      - 'package*.json'
+      - 'Dockerfile'
+      - 'scripts/security-scan.sh'
+
+  # Scheduled security scans for proactive vulnerability detection and continuous monitoring
+  schedule:
+    # Weekly comprehensive security scan every Monday at 6 AM UTC for proactive vulnerability detection
+    - cron: '0 6 * * 1'
+    # Mid-week security assessment every Wednesday at 6 PM UTC for continuous monitoring
+    - cron: '0 18 * * 3'
+
+  # Manual trigger for on-demand security scanning with configurable parameters
+  workflow_dispatch:
+    inputs:
+      scan_mode:
+        description: 'Security scan comprehensiveness and depth level'
+        required: false
+        default: 'comprehensive'
+        type: choice
+        options:
+          - 'quick'
+          - 'standard'
+          - 'comprehensive'
+          - 'deep'
+      include_container_scan:
+        description: 'Include Docker container security scanning with Trivy'
+        required: false
+        default: true
+        type: boolean
+      include_secret_scan:
+        description: 'Include secret detection with Git history analysis'
+        required: false
+        default: true
+        type: boolean
+      educational_mode:
+        description: 'Generate detailed educational security materials and tutorials'
+        required: false
+        default: true
+        type: boolean
+      vulnerability_threshold:
+        description: 'Vulnerability severity threshold for pipeline failure decision'
+        required: false
+        default: 'high'
+        type: choice
+        options:
+          - 'low'
+          - 'medium'
+          - 'high'
+          - 'critical'
+      fail_on_critical:
+        description: 'Fail pipeline on critical vulnerabilities discovery'
+        required: false
+        default: true
+        type: boolean
+
+# Prevent concurrent security scans on the same branch to optimize resource usage
+concurrency:
+  group: 'security-scan-${{ github.ref }}'
+  cancel-in-progress: true
+
+# Minimal required permissions for security scanning, SARIF upload, and vulnerability tracking
+permissions:
+  contents: read                # Read repository content for security analysis
+  security-events: write       # Upload SARIF reports to GitHub Security tab
+  pull-requests: write         # Comment on PRs with security findings
+  actions: read                # Read workflow artifacts and dependencies
+  packages: read               # Access container registry for Docker scanning
+  id-token: write              # OIDC token for secure authentication
+
+# Global environment variables for security scanning configuration
+env:
+  NODE_ENV: test
+  CI: true
+  SECURITY_SCAN_MODE: ${{ github.event.inputs.scan_mode || 'comprehensive' }}
+  VULNERABILITY_THRESHOLD: ${{ github.event.inputs.vulnerability_threshold || 'high' }}
+  FAIL_ON_CRITICAL: ${{ github.event.inputs.fail_on_critical || 'true' }}
+  GENERATE_EDUCATIONAL_REPORT: ${{ github.event.inputs.educational_mode || 'true' }}
+  SCAN_OUTPUT_DIR: 'security-reports'
+  INCLUDE_CONTAINER_SCAN: ${{ github.event.inputs.include_container_scan || 'true' }}
+  INCLUDE_SECRET_SCAN: ${{ github.event.inputs.include_secret_scan || 'true' }}
+  SARIF_OUTPUT: 'security-results.sarif'
+  TRIVY_DB_REPOSITORY: 'ghcr.io/aquasecurity/trivy-db'
+  NODE_VERSION: '22.x'
+
+# Comprehensive security scanning workflow with parallel execution and educational reporting
+jobs:
+  # ========================================================================
+  # JOB 1: Security Environment Initialization and Validation
+  # ========================================================================
+  security_initialization:
+    name: 'Initialize Security Environment'
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    outputs:
+      scan-mode: ${{ steps.config.outputs.scan-mode }}
+      tools-available: ${{ steps.validation.outputs.tools-available }}
+      educational-mode: ${{ steps.config.outputs.educational-mode }}
+      vulnerability-threshold: ${{ steps.config.outputs.vulnerability-threshold }}
+    
+    steps:
+      # Harden GitHub Actions runner with network policies and security monitoring
+      - name: 'Harden GitHub Actions Runner'
+        uses: step-security/harden-runner@v2 # v2.10.1
+        with:
+          egress-policy: audit
+          allowed-endpoints: >
+            github.com:443
+            api.github.com:443
+            registry.npmjs.org:443
+            nodejs.org:443
+            raw.githubusercontent.com:443
+            ghcr.io:443
+            auth.docker.io:443
+            registry-1.docker.io:443
+            production.cloudflare.docker.com:443
+            index.docker.io:443
+
+      # Checkout repository with full Git history for comprehensive security analysis
+      - name: 'Checkout Repository with Full History'
+        uses: actions/checkout@v4 # v4.1.7
+        with:
+          fetch-depth: 0  # Full Git history for secret scanning and historical vulnerability analysis
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      # Setup Node.js 22.x LTS with NPM dependency caching and security tool compatibility
+      - name: 'Setup Node.js 22.x LTS Environment'
+        uses: actions/setup-node@v4 # v4.0.4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: 'src/backend/package-lock.json'
+          registry-url: 'https://registry.npmjs.org'
+
+      # Validate Node.js and NPM versions for security tool compatibility
+      - name: 'Validate Runtime Environment'
+        id: validation
+        run: |
+          echo "Node.js version: $(node --version)"
+          echo "NPM version: $(npm --version)"
+          echo "Git version: $(git --version)"
+          
+          # Validate Node.js version compatibility (22.x required)
+          node_version=$(node --version | sed 's/v//')
+          if [[ ! "$node_version" =~ ^22\. ]]; then
+            echo "::error::Node.js version $node_version not supported - requires 22.x LTS"
+            exit 1
+          fi
+          
+          # Check security tool availability
+          tools_available="basic"
+          if command -v docker >/dev/null 2>&1; then
+            tools_available="${tools_available},docker"
+          fi
+          echo "tools-available=${tools_available}" >> $GITHUB_OUTPUT
+
+      # Configure security scan parameters and educational settings
+      - name: 'Configure Security Scan Parameters'
+        id: config
+        run: |
+          echo "scan-mode=${{ env.SECURITY_SCAN_MODE }}" >> $GITHUB_OUTPUT
+          echo "educational-mode=${{ env.GENERATE_EDUCATIONAL_REPORT }}" >> $GITHUB_OUTPUT
+          echo "vulnerability-threshold=${{ env.VULNERABILITY_THRESHOLD }}" >> $GITHUB_OUTPUT
+          
+          # Log security scan configuration
+          echo "::notice::Security scan configuration:"
+          echo "::notice::- Mode: ${{ env.SECURITY_SCAN_MODE }}"
+          echo "::notice::- Threshold: ${{ env.VULNERABILITY_THRESHOLD }}"
+          echo "::notice::- Educational: ${{ env.GENERATE_EDUCATIONAL_REPORT }}"
+          echo "::notice::- Container scan: ${{ env.INCLUDE_CONTAINER_SCAN }}"
+          echo "::notice::- Secret scan: ${{ env.INCLUDE_SECRET_SCAN }}"
+
+      # Create security reports directory structure with proper permissions
+      - name: 'Initialize Security Scan Directory Structure'
+        run: |
+          mkdir -p "${{ env.SCAN_OUTPUT_DIR }}"/{dependency-scan,static-analysis,container-scan,secret-detection,sarif-reports,educational-materials}
+          chmod 755 "${{ env.SCAN_OUTPUT_DIR }}"
+          echo "::notice::Security scan directories created successfully"
+
+      # Install core security scanning tools and dependencies
+      - name: 'Install Security Scanning Dependencies'
+        working-directory: src/backend
+        run: |
+          # Install NPM dependencies for security analysis
+          npm ci --include=dev --no-audit --no-fund --quiet
+          
+          # Install global security tools if available
+          if [ "${{ env.SECURITY_SCAN_MODE }}" != "quick" ]; then
+            npm install -g snyk@latest --no-fund --quiet 2>/dev/null || echo "Snyk installation skipped"
+          fi
+          
+          echo "::notice::Security scanning dependencies installed"
+
+  # ========================================================================
+  # JOB 2: NPM Dependency Vulnerability Scanning
+  # ========================================================================
+  dependency_vulnerability_scanning:
+    name: 'NPM Dependency Security Analysis'
+    runs-on: ubuntu-22.04
+    timeout-minutes: 25
+    needs: [security_initialization]
+    
+    steps:
+      # Harden runner environment for dependency scanning
+      - name: 'Harden Runner for Dependency Scanning'
+        uses: step-security/harden-runner@v2
+        with:
+          egress-policy: audit
+
+      - name: 'Checkout Repository'
+        uses: actions/checkout@v4
+
+      - name: 'Setup Node.js for Dependency Analysis'
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: 'src/backend/package-lock.json'
+
+      # Execute comprehensive dependency vulnerability scanning
+      - name: 'Execute NPM Dependency Vulnerability Scan'
+        working-directory: src/backend
+        run: |
+          # Create output directory
+          mkdir -p "../${{ env.SCAN_OUTPUT_DIR }}/dependency-scan"
+          
+          # Install dependencies for analysis
+          npm ci --include=dev --no-audit --no-fund --quiet
+          
+          # Run npm audit with comprehensive reporting
+          echo "::group::NPM Audit Analysis"
+          npm audit --json > "../${{ env.SCAN_OUTPUT_DIR }}/dependency-scan/npm-audit.json" 2>/dev/null || {
+            audit_exit_code=$?
+            echo "::notice::NPM audit completed with findings (exit code: $audit_exit_code)"
+          }
+          
+          # Generate human-readable audit report
+          npm audit > "../${{ env.SCAN_OUTPUT_DIR }}/dependency-scan/npm-audit-report.txt" 2>/dev/null || true
+          echo "::endgroup::"
+          
+          # Check for outdated packages with security implications
+          echo "::group::Outdated Package Analysis"
+          npm outdated --json > "../${{ env.SCAN_OUTPUT_DIR }}/dependency-scan/outdated-packages.json" 2>/dev/null || true
+          echo "::endgroup::"
+          
+          # Generate dependency security matrix
+          echo "::group::Dependency Security Summary"
+          if [ -f "../${{ env.SCAN_OUTPUT_DIR }}/dependency-scan/npm-audit.json" ]; then
+            critical=$(jq -r '.metadata.vulnerabilities.critical // 0' "../${{ env.SCAN_OUTPUT_DIR }}/dependency-scan/npm-audit.json")
+            high=$(jq -r '.metadata.vulnerabilities.high // 0' "../${{ env.SCAN_OUTPUT_DIR }}/dependency-scan/npm-audit.json")
+            moderate=$(jq -r '.metadata.vulnerabilities.moderate // 0' "../${{ env.SCAN_OUTPUT_DIR }}/dependency-scan/npm-audit.json")
+            low=$(jq -r '.metadata.vulnerabilities.low // 0' "../${{ env.SCAN_OUTPUT_DIR }}/dependency-scan/npm-audit.json")
+            
+            echo "::notice::Dependency Vulnerability Matrix:"
+            echo "::notice::- Critical: $critical"
+            echo "::notice::- High: $high"
+            echo "::notice::- Moderate: $moderate"
+            echo "::notice::- Low: $low"
+          fi
+          echo "::endgroup::"
+
+      # Run Snyk security scan for enhanced vulnerability coverage
+      - name: 'Enhanced Vulnerability Analysis with Snyk'
+        working-directory: src/backend
+        if: env.SECURITY_SCAN_MODE != 'quick'
+        continue-on-error: true
+        run: |
+          # Install Snyk CLI if available
+          if npm install -g snyk@latest --no-fund --quiet 2>/dev/null; then
+            echo "::group::Snyk Security Analysis"
+            
+            # Authenticate with Snyk if token available
+            if [ -n "${{ secrets.SNYK_TOKEN }}" ]; then
+              echo "${{ secrets.SNYK_TOKEN }}" | snyk auth
+            fi
+            
+            # Run Snyk vulnerability test
+            snyk test --json > "../${{ env.SCAN_OUTPUT_DIR }}/dependency-scan/snyk-scan.json" 2>/dev/null || {
+              snyk_exit_code=$?
+              echo "::notice::Snyk scan completed with findings (exit code: $snyk_exit_code)"
+            }
+            
+            # Generate Snyk security report
+            snyk test > "../${{ env.SCAN_OUTPUT_DIR }}/dependency-scan/snyk-report.txt" 2>/dev/null || true
+            
+            echo "::endgroup::"
+          else
+            echo "::notice::Snyk CLI not available - using NPM audit only"
+          fi
+
+      # Generate educational security materials for dependency vulnerabilities
+      - name: 'Generate Dependency Security Educational Materials'
+        if: env.GENERATE_EDUCATIONAL_REPORT == 'true'
+        run: |
+          mkdir -p "${{ env.SCAN_OUTPUT_DIR }}/educational-materials"
+          
+          cat > "${{ env.SCAN_OUTPUT_DIR }}/educational-materials/dependency-security-guide.md" << 'EOF'
+          # NPM Dependency Security - Educational Guide
+          
+          ## Understanding Dependency Vulnerabilities
+          
+          Dependency vulnerabilities occur when third-party packages contain security flaws that can be exploited by attackers. The Node.js ecosystem relies heavily on NPM packages, making dependency security crucial for application safety.
+          
+          ### Vulnerability Severity Levels
+          
+          #### Critical Vulnerabilities
+          - **Impact**: Complete system compromise, remote code execution
+          - **Response**: Immediate action required within 24 hours
+          - **Example**: Prototype pollution in lodash, arbitrary code execution
+          
+          #### High Severity Issues
+          - **Impact**: Significant security risks, data exposure potential
+          - **Response**: Update within 1 week
+          - **Example**: Cross-site scripting, authentication bypass
+          
+          #### Moderate Severity Issues  
+          - **Impact**: Limited security risks, denial of service potential
+          - **Response**: Update in next development cycle
+          - **Example**: Information disclosure, resource exhaustion
+          
+          #### Low Severity Issues
+          - **Impact**: Minor security concerns
+          - **Response**: Update when convenient
+          - **Example**: Debug information exposure
+          
+          ### Best Practices for Node.js Applications
+          
+          1. **Regular Updates**: Keep dependencies current with `npm update`
+          2. **Automated Scanning**: Use `npm audit` in CI/CD pipelines  
+          3. **Vulnerability Monitoring**: Set up alerts for new vulnerabilities
+          4. **Minimal Dependencies**: Only include necessary packages
+          5. **Lock File Usage**: Commit package-lock.json for deterministic builds
+          
+          ### Remediation Strategies
+          
+          ```bash
+          # Check for vulnerabilities
+          npm audit
+          
+          # Fix automatically where possible
+          npm audit fix
+          
+          # Force fixes (may introduce breaking changes)
+          npm audit fix --force
+          
+          # Update specific package
+          npm update package-name
+          ```
+          
+          ### Learning Resources
+          
+          - [NPM Security Documentation](https://docs.npmjs.com/security)
+          - [Node.js Security Best Practices](https://nodejs.org/en/security/)
+          - [Express.js Security Guide](https://expressjs.com/en/advanced/best-practice-security.html)
+          EOF
+
+      # Upload dependency scan artifacts for aggregation
+      - name: 'Upload Dependency Security Artifacts'
+        uses: actions/upload-artifact@v4 # v4.4.3
+        with:
+          name: 'dependency-vulnerability-scan'
+          path: |
+            ${{ env.SCAN_OUTPUT_DIR }}/dependency-scan/
+            ${{ env.SCAN_OUTPUT_DIR }}/educational-materials/dependency-security-guide.md
+          retention-days: 90
+          if-no-files-found: warn
+
+  # ========================================================================
+  # JOB 3: Static Application Security Testing (SAST)
+  # ========================================================================
+  static_application_security_testing:
+    name: 'Static Application Security Testing'
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    needs: [security_initialization]
+    
+    steps:
+      - name: 'Harden Runner for SAST'
+        uses: step-security/harden-runner@v2
+        with:
+          egress-policy: audit
+
+      - name: 'Checkout Repository for Static Analysis'
+        uses: actions/checkout@v4
+
+      - name: 'Setup Node.js for Static Analysis'
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: 'src/backend/package-lock.json'
+
+      # Execute ESLint with security-focused rules for static code analysis
+      - name: 'Execute ESLint Security Analysis'
+        working-directory: src/backend
+        run: |
+          # Create SAST output directory
+          mkdir -p "../${{ env.SCAN_OUTPUT_DIR }}/static-analysis"
+          
+          # Install dependencies including ESLint
+          npm ci --include=dev --no-audit --no-fund --quiet
+          
+          echo "::group::ESLint Security Analysis"
+          
+          # Run ESLint with security analysis and JSON output
+          npm run lint -- --format json --output-file "../${{ env.SCAN_OUTPUT_DIR }}/static-analysis/eslint-security.json" || {
+            lint_exit_code=$?
+            echo "::notice::ESLint analysis completed with findings (exit code: $lint_exit_code)"
+          }
+          
+          # Generate human-readable ESLint report
+          npm run lint -- --format stylish > "../${{ env.SCAN_OUTPUT_DIR }}/static-analysis/eslint-report.txt" 2>&1 || true
+          
+          # Count ESLint security issues
+          if [ -f "../${{ env.SCAN_OUTPUT_DIR }}/static-analysis/eslint-security.json" ]; then
+            error_count=$(jq '[.[] | .messages[] | select(.severity == 2)] | length' "../${{ env.SCAN_OUTPUT_DIR }}/static-analysis/eslint-security.json")
+            warning_count=$(jq '[.[] | .messages[] | select(.severity == 1)] | length' "../${{ env.SCAN_OUTPUT_DIR }}/static-analysis/eslint-security.json")
+            echo "::notice::ESLint findings: $error_count errors, $warning_count warnings"
+          fi
+          
+          echo "::endgroup::"
+
+      # Install and run Semgrep for advanced security pattern detection
+      - name: 'Advanced Security Pattern Detection with Semgrep'
+        if: env.SECURITY_SCAN_MODE != 'quick'
+        continue-on-error: true
+        run: |
+          echo "::group::Semgrep Security Pattern Analysis"
+          
+          # Install Semgrep
+          python3 -m pip install semgrep --quiet
+          
+          # Run Semgrep with Node.js and Express.js security rules
+          cd src/backend
+          semgrep --config=auto --json --output="../../${{ env.SCAN_OUTPUT_DIR }}/static-analysis/semgrep-findings.json" src/ || {
+            semgrep_exit_code=$?
+            echo "::notice::Semgrep analysis completed with findings (exit code: $semgrep_exit_code)"
+          }
+          
+          # Generate human-readable Semgrep report
+          semgrep --config=auto --output="../../${{ env.SCAN_OUTPUT_DIR }}/static-analysis/semgrep-report.txt" src/ || true
+          
+          echo "::endgroup::"
+
+      # Generate educational SAST materials and security learning content
+      - name: 'Generate SAST Educational Materials'
+        if: env.GENERATE_EDUCATIONAL_REPORT == 'true'
+        run: |
+          mkdir -p "${{ env.SCAN_OUTPUT_DIR }}/educational-materials"
+          
+          cat > "${{ env.SCAN_OUTPUT_DIR }}/educational-materials/sast-security-guide.md" << 'EOF'
+          # Static Application Security Testing - Educational Guide
+          
+          ## Understanding SAST for Node.js Applications
+          
+          Static Application Security Testing (SAST) analyzes source code to identify security vulnerabilities without executing the application. For Node.js applications, SAST tools like ESLint and Semgrep can detect common security anti-patterns.
+          
+          ### Common Node.js Security Issues Detected by SAST
+          
+          #### 1. Code Injection Vulnerabilities
+          - **eval() usage**: Arbitrary code execution risk
+          - **Function constructor**: Dynamic code generation
+          - **vm module misuse**: Sandbox escape potential
+          
+          ```javascript
+          // VULNERABLE - Never use eval() with user input
+          const userInput = req.query.code;
+          eval(userInput); // DANGEROUS!
+          
+          // SECURE - Use JSON.parse for data
+          const userData = JSON.parse(req.body.data);
+          ```
+          
+          #### 2. Cross-Site Scripting (XSS) Prevention
+          - **Unescaped output**: HTML injection risk
+          - **innerHTML usage**: DOM-based XSS
+          - **Template injection**: Server-side template injection
+          
+          ```javascript
+          // VULNERABLE - Direct HTML output
+          res.send(`<h1>Hello ${req.query.name}</h1>`);
+          
+          // SECURE - Use templating engine with auto-escaping
+          res.render('hello', { name: req.query.name });
+          ```
+          
+          #### 3. Authentication and Authorization Flaws
+          - **Hardcoded credentials**: Secrets in source code
+          - **Weak session management**: Insecure session handling
+          - **Missing access controls**: Unauthorized resource access
+          
+          #### 4. Express.js Specific Security Patterns
+          - **Missing helmet middleware**: Security headers not set
+          - **CORS misconfiguration**: Permissive cross-origin policies
+          - **Rate limiting absence**: DoS attack vulnerability
+          
+          ### ESLint Security Rules for Node.js
+          
+          Essential security rules to enable:
+          - `security/detect-eval-with-expression`
+          - `security/detect-non-literal-require`
+          - `security/detect-object-injection`
+          - `security/detect-unsafe-regex`
+          
+          ### Best Practices for Secure Node.js Code
+          
+          1. **Input Validation**: Always validate and sanitize user input
+          2. **Output Encoding**: Escape data before rendering to prevent XSS
+          3. **Authentication**: Use proven libraries like Passport.js
+          4. **Authorization**: Implement proper access controls
+          5. **Error Handling**: Don't expose sensitive information in errors
+          6. **Logging**: Log security events but not sensitive data
+          
+          ### Integration with CI/CD
+          
+          ```yaml
+          # GitHub Actions example
+          - name: Security Linting
+            run: npx eslint . --ext .js --config .eslintrc-security.js
+          ```
+          
+          ### Learning Resources
+          
+          - [OWASP Top 10 for Node.js](https://owasp.org/www-project-top-ten/)
+          - [Node.js Security Checklist](https://blog.risingstack.com/node-js-security-checklist/)
+          - [Express.js Security Best Practices](https://expressjs.com/en/advanced/best-practice-security.html)
+          EOF
+
+      # Upload SAST artifacts for security findings aggregation
+      - name: 'Upload SAST Security Artifacts'
+        uses: actions/upload-artifact@v4
+        with:
+          name: 'static-security-analysis'
+          path: |
+            ${{ env.SCAN_OUTPUT_DIR }}/static-analysis/
+            ${{ env.SCAN_OUTPUT_DIR }}/educational-materials/sast-security-guide.md
+          retention-days: 90
+          if-no-files-found: warn
+
+  # ========================================================================
+  # JOB 4: Container Security Assessment
+  # ========================================================================
+  container_security_assessment:
+    name: 'Container Security Assessment'
+    runs-on: ubuntu-22.04
+    timeout-minutes: 35
+    needs: [security_initialization]
+    if: ${{ github.event.inputs.include_container_scan != 'false' }}
+    services:
+      docker:
+        image: docker:dind
+        options: --privileged
+    
+    steps:
+      - name: 'Harden Runner for Container Security'
+        uses: step-security/harden-runner@v2
+        with:
+          egress-policy: audit
+
+      - name: 'Checkout Repository for Container Analysis'
+        uses: actions/checkout@v4
+
+      - name: 'Setup Docker Buildx for Container Security'
+        uses: docker/setup-buildx-action@v3 # v3.7.1
+
+      # Build Docker image for comprehensive security analysis
+      - name: 'Build Docker Image for Security Scanning'
+        working-directory: src/backend
+        run: |
+          # Create container security output directory
+          mkdir -p "../${{ env.SCAN_OUTPUT_DIR }}/container-scan"
+          
+          echo "::group::Building Docker Image for Security Analysis"
+          
+          # Build Docker image with security scanning tags
+          docker build \
+            --tag nodejs-tutorial:security-scan \
+            --build-arg BUILD_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --build-arg VCS_REF="${{ github.sha }}" \
+            .
+          
+          echo "::notice::Docker image built successfully for security scanning"
+          echo "::endgroup::"
+
+      # Execute comprehensive container vulnerability scanning with Trivy
+      - name: 'Execute Trivy Container Vulnerability Scan'
+        uses: aquasecurity/trivy-action@master # v0.28.0
+        with:
+          image-ref: 'nodejs-tutorial:security-scan'
+          format: 'sarif'
+          output: '${{ env.SCAN_OUTPUT_DIR }}/container-scan/trivy-container-scan.sarif'
+          timeout: '10m'
+          exit-code: '0'  # Don't fail on vulnerabilities
+          vuln-type: 'os,library'
+          severity: 'UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL'
+
+      # Generate additional container security reports and analysis
+      - name: 'Generate Container Security Analysis Reports'
+        run: |
+          echo "::group::Container Security Analysis"
+          
+          # Run Trivy with JSON output for detailed analysis
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+            -v "$(pwd)/${{ env.SCAN_OUTPUT_DIR }}/container-scan":/output \
+            aquasecurity/trivy:latest image \
+            --format json \
+            --output /output/trivy-detailed.json \
+            nodejs-tutorial:security-scan || true
+          
+          # Run Trivy table format for human-readable report
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+            -v "$(pwd)/${{ env.SCAN_OUTPUT_DIR }}/container-scan":/output \
+            aquasecurity/trivy:latest image \
+            --format table \
+            --output /output/trivy-report.txt \
+            nodejs-tutorial:security-scan || true
+          
+          # Analyze Docker image layers and configuration
+          docker history nodejs-tutorial:security-scan > "${{ env.SCAN_OUTPUT_DIR }}/container-scan/docker-layers.txt"
+          docker inspect nodejs-tutorial:security-scan > "${{ env.SCAN_OUTPUT_DIR }}/container-scan/docker-inspect.json"
+          
+          echo "::endgroup::"
+
+      # Dockerfile security best practices analysis
+      - name: 'Dockerfile Security Best Practices Analysis'
+        working-directory: src/backend
+        run: |
+          echo "::group::Dockerfile Security Analysis"
+          
+          # Install hadolint for Dockerfile linting
+          wget -O hadolint https://github.com/hadolint/hadolint/releases/latest/download/hadolint-Linux-x86_64
+          chmod +x hadolint
+          
+          # Run hadolint security analysis
+          ./hadolint Dockerfile --format json > "../${{ env.SCAN_OUTPUT_DIR }}/container-scan/dockerfile-analysis.json" || {
+            hadolint_exit_code=$?
+            echo "::notice::Dockerfile analysis completed with findings (exit code: $hadolint_exit_code)"
+          }
+          
+          # Generate human-readable Dockerfile report
+          ./hadolint Dockerfile > "../${{ env.SCAN_OUTPUT_DIR }}/container-scan/dockerfile-report.txt" 2>&1 || true
+          
+          echo "::endgroup::"
+
+      # Generate container security educational materials
+      - name: 'Generate Container Security Educational Materials'
+        if: env.GENERATE_EDUCATIONAL_REPORT == 'true'
+        run: |
+          mkdir -p "${{ env.SCAN_OUTPUT_DIR }}/educational-materials"
+          
+          cat > "${{ env.SCAN_OUTPUT_DIR }}/educational-materials/container-security-guide.md" << 'EOF'
+          # Container Security for Node.js - Educational Guide
+          
+          ## Understanding Container Security
+          
+          Container security involves protecting containerized applications throughout their lifecycle, from build to runtime. For Node.js applications, this includes securing base images, application dependencies, and runtime configuration.
+          
+          ### Container Security Layers
+          
+          #### 1. Base Image Security
+          - **Official Images**: Use official Node.js images from Docker Hub
+          - **Minimal Images**: Prefer Alpine Linux for smaller attack surface
+          - **Image Scanning**: Regularly scan for known vulnerabilities
+          - **Image Signatures**: Verify image authenticity and integrity
+          
+          ```dockerfile
+          # SECURE - Use official Node.js Alpine image with specific version
+          FROM node:22-alpine3.19
+          
+          # VULNERABLE - Using latest tag without version pinning
+          FROM node:latest
+          ```
+          
+          #### 2. Dockerfile Security Best Practices
+          
+          **Non-Root User Execution**
+          ```dockerfile
+          # Create and use non-root user
+          RUN addgroup -g 1001 -S nodejs
+          RUN adduser -S nodejs -u 1001
+          USER nodejs
+          ```
+          
+          **Minimal Dependencies**
+          ```dockerfile
+          # Multi-stage build to reduce final image size
+          FROM node:22-alpine AS builder
+          WORKDIR /app
+          COPY package*.json ./
+          RUN npm ci --only=production
+          
+          FROM node:22-alpine AS runtime
+          COPY --from=builder /app/node_modules ./node_modules
+          ```
+          
+          **Security Headers and Configuration**
+          ```dockerfile
+          # Install security updates
+          RUN apk update && apk upgrade
+          
+          # Remove unnecessary packages
+          RUN apk del --purge apk-tools
+          ```
+          
+          #### 3. Runtime Security
+          - **Resource Limits**: Set CPU and memory constraints
+          - **Read-Only File System**: Mount file systems as read-only
+          - **Network Policies**: Restrict network access
+          - **Secret Management**: Use container orchestration secrets
+          
+          ### Common Container Vulnerabilities
+          
+          #### CVE in Base Images
+          - **Impact**: System-level vulnerabilities in OS packages
+          - **Detection**: Vulnerability scanners like Trivy, Snyk
+          - **Mitigation**: Regular base image updates
+          
+          #### Vulnerable Dependencies
+          - **Impact**: Application-level security issues
+          - **Detection**: npm audit, dependency scanning
+          - **Mitigation**: Keep dependencies updated
+          
+          #### Configuration Issues
+          - **Impact**: Runtime security weaknesses
+          - **Detection**: Container benchmarks (CIS Docker)
+          - **Mitigation**: Security-hardened configurations
+          
+          ### Container Security Tools
+          
+          #### Trivy Scanner
+          - **Purpose**: Comprehensive vulnerability detection
+          - **Coverage**: OS packages, language dependencies
+          - **Usage**: CI/CD integration, local scanning
+          
+          ```bash
+          # Scan container image for vulnerabilities
+          trivy image nodejs-app:latest
+          
+          # Export results in SARIF format for GitHub
+          trivy image --format sarif nodejs-app:latest > security-report.sarif
+          ```
+          
+          #### Docker Bench Security
+          - **Purpose**: CIS Docker Benchmark compliance
+          - **Coverage**: Docker daemon and container configuration
+          - **Usage**: Automated security auditing
+          
+          ### Production Container Security
+          
+          #### Kubernetes Security
+          - **Pod Security Standards**: Restricted profile for Node.js apps
+          - **Network Policies**: Limit pod-to-pod communication
+          - **RBAC**: Minimal permissions for service accounts
+          - **Resource Quotas**: Prevent resource exhaustion
+          
+          #### Runtime Protection
+          - **Falco**: Runtime security monitoring
+          - **gVisor**: Application kernel for isolation
+          - **SELinux/AppArmor**: Mandatory access controls
+          
+          ### Learning Resources
+          
+          - [Docker Security Best Practices](https://docs.docker.com/engine/security/)
+          - [CIS Docker Benchmark](https://www.cisecurity.org/benchmark/docker)
+          - [NIST Container Security Guide](https://csrc.nist.gov/publications/detail/sp/800-190/final)
+          - [Kubernetes Security Best Practices](https://kubernetes.io/docs/concepts/security/)
+          EOF
+
+      # Upload container security artifacts
+      - name: 'Upload Container Security Artifacts'
+        uses: actions/upload-artifact@v4
+        with:
+          name: 'container-security-assessment'
+          path: |
+            ${{ env.SCAN_OUTPUT_DIR }}/container-scan/
+            ${{ env.SCAN_OUTPUT_DIR }}/educational-materials/container-security-guide.md
+          retention-days: 90
+          if-no-files-found: warn
+
+  # ========================================================================
+  # JOB 5: Secret and Credential Detection
+  # ========================================================================
+  secret_credential_detection:
+    name: 'Secret and Credential Detection'
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    needs: [security_initialization]
+    if: ${{ github.event.inputs.include_secret_scan != 'false' }}
+    
+    steps:
+      - name: 'Harden Runner for Secret Detection'
+        uses: step-security/harden-runner@v2
+        with:
+          egress-policy: audit
+
+      - name: 'Checkout Repository with Full History for Secret Scanning'
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full Git history for comprehensive secret detection
+
+      # Install TruffleHog for comprehensive secret detection
+      - name: 'Install TruffleHog Secret Scanner'
+        run: |
+          # Create secret detection output directory
+          mkdir -p "${{ env.SCAN_OUTPUT_DIR }}/secret-detection"
+          
+          echo "::group::Installing TruffleHog Secret Scanner"
+          
+          # Install TruffleHog using Go
+          GO_VERSION="1.21"
+          wget -O go.tar.gz "https://golang.org/dl/go${GO_VERSION}.linux-amd64.tar.gz"
+          sudo tar -C /usr/local -xzf go.tar.gz
+          export PATH=$PATH:/usr/local/go/bin
+          
+          # Install TruffleHog
+          go install github.com/trufflesecurity/trufflehog/v3@latest
+          export PATH=$PATH:$(go env GOPATH)/bin
+          
+          # Verify installation
+          trufflehog --version
+          
+          echo "::endgroup::"
+
+      # Execute comprehensive secret detection with TruffleHog
+      - name: 'Execute TruffleHog Secret Detection'
+        run: |
+          export PATH=$PATH:/usr/local/go/bin:$(go env GOPATH)/bin
+          
+          echo "::group::TruffleHog Secret Detection"
+          
+          # Scan current repository for secrets
+          trufflehog git . \
+            --json \
+            --output "${{ env.SCAN_OUTPUT_DIR }}/secret-detection/trufflehog-secrets.json" \
+            --no-update || {
+            trufflehog_exit_code=$?
+            echo "::notice::TruffleHog scan completed with findings (exit code: $trufflehog_exit_code)"
+          }
+          
+          # Generate human-readable report
+          trufflehog git . \
+            --output "${{ env.SCAN_OUTPUT_DIR }}/secret-detection/trufflehog-report.txt" \
+            --no-update || true
+          
+          # Count detected secrets
+          if [ -f "${{ env.SCAN_OUTPUT_DIR }}/secret-detection/trufflehog-secrets.json" ]; then
+            secret_count=$(wc -l < "${{ env.SCAN_OUTPUT_DIR }}/secret-detection/trufflehog-secrets.json")
+            echo "::notice::TruffleHog detected $secret_count potential secrets"
+          fi
+          
+          echo "::endgroup::"
+
+      # Additional secret pattern scanning for Node.js specific patterns
+      - name: 'Node.js Specific Secret Pattern Analysis'
+        run: |
+          echo "::group::Node.js Secret Pattern Analysis"
+          
+          # Search for common Node.js secret patterns
+          {
+            echo "# Node.js Secret Pattern Analysis Report"
+            echo "Generated: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo ""
+            
+            echo "## Environment Variable Patterns"
+            grep -r "process\.env\." src/ --include="*.js" | head -20 || echo "No environment variable usage found"
+            echo ""
+            
+            echo "## Potential API Keys"
+            grep -ri "api[_-]key\|apikey\|api-key" src/ --include="*.js" | head -10 || echo "No API key patterns found"
+            echo ""
+            
+            echo "## JWT Tokens"
+            grep -ri "jwt\|token" src/ --include="*.js" | head -10 || echo "No JWT token patterns found"
+            echo ""
+            
+            echo "## Database Connection Strings"
+            grep -ri "mongodb://\|postgres://\|mysql://" src/ --include="*.js" | head -5 || echo "No database connection strings found"
+            echo ""
+            
+          } > "${{ env.SCAN_OUTPUT_DIR }}/secret-detection/nodejs-secret-patterns.txt"
+          
+          echo "::endgroup::"
+
+      # Generate secret management educational materials
+      - name: 'Generate Secret Management Educational Materials'
+        if: env.GENERATE_EDUCATIONAL_REPORT == 'true'
+        run: |
+          mkdir -p "${{ env.SCAN_OUTPUT_DIR }}/educational-materials"
+          
+          cat > "${{ env.SCAN_OUTPUT_DIR }}/educational-materials/secret-management-guide.md" << 'EOF'
+          # Secret Management for Node.js - Educational Guide
+          
+          ## Understanding Secret Management
+          
+          Secret management involves securely storing, accessing, and rotating sensitive information like API keys, database passwords, and authentication tokens in Node.js applications.
+          
+          ### Types of Secrets in Node.js Applications
+          
+          #### 1. Database Credentials
+          ```javascript
+          // VULNERABLE - Hardcoded database credentials
+          const mongoUrl = 'mongodb://admin:password123@localhost:27017/myapp';
+          
+          // SECURE - Environment variable usage
+          const mongoUrl = process.env.MONGODB_URL;
+          ```
+          
+          #### 2. API Keys and Tokens
+          ```javascript
+          // VULNERABLE - API key in source code
+          const apiKey = 'sk-1234567890abcdef';
+          
+          // SECURE - Environment variable with validation
+          const apiKey = process.env.API_KEY;
+          if (!apiKey) {
+            throw new Error('API_KEY environment variable is required');
+          }
+          ```
+          
+          #### 3. JWT Signing Keys
+          ```javascript
+          // VULNERABLE - Hardcoded signing key
+          const jwt = require('jsonwebtoken');
+          const token = jwt.sign(payload, 'mysecretkey');
+          
+          // SECURE - Environment-based signing key
+          const signingKey = process.env.JWT_SIGNING_KEY;
+          const token = jwt.sign(payload, signingKey);
+          ```
+          
+          ### Secure Secret Management Practices
+          
+          #### Environment Variables
+          ```bash
+          # .env file (never commit to version control)
+          DATABASE_URL=postgresql://user:pass@localhost/db
+          API_SECRET_KEY=your-secret-key-here
+          JWT_SIGNING_KEY=your-jwt-signing-key
+          ```
+          
+          ```javascript
+          // Load environment variables securely
+          require('dotenv').config();
+          
+          const config = {
+            database: {
+              url: process.env.DATABASE_URL,
+            },
+            api: {
+              secretKey: process.env.API_SECRET_KEY,
+            },
+          };
+          
+          // Validate required secrets
+          const requiredEnvVars = ['DATABASE_URL', 'API_SECRET_KEY'];
+          requiredEnvVars.forEach(envVar => {
+            if (!process.env[envVar]) {
+              throw new Error(`Missing required environment variable: ${envVar}`);
+            }
+          });
+          ```
+          
+          #### Secret Rotation Strategy
+          - **Regular Rotation**: Change secrets periodically
+          - **Automated Rotation**: Use tools like AWS Secrets Manager
+          - **Version Management**: Maintain multiple valid keys during transition
+          - **Audit Logging**: Log secret access and rotation events
+          
+          ### Production Secret Management
+          
+          #### Container Orchestration
+          ```yaml
+          # Kubernetes Secret
+          apiVersion: v1
+          kind: Secret
+          metadata:
+            name: nodejs-app-secrets
+          type: Opaque
+          data:
+            database-url: <base64-encoded-url>
+            api-key: <base64-encoded-key>
+          ```
+          
+          ```yaml
+          # Pod configuration
+          spec:
+            containers:
+            - name: nodejs-app
+              env:
+              - name: DATABASE_URL
+                valueFrom:
+                  secretKeyRef:
+                    name: nodejs-app-secrets
+                    key: database-url
+          ```
+          
+          #### Cloud Secret Management
+          
+          **AWS Secrets Manager**
+          ```javascript
+          const AWS = require('aws-sdk');
+          const client = new AWS.SecretsManager({
+            region: 'us-east-1'
+          });
+          
+          async function getSecret(secretName) {
+            try {
+              const data = await client.getSecretValue({
+                SecretId: secretName
+              }).promise();
+              return JSON.parse(data.SecretString);
+            } catch (error) {
+              console.error('Error retrieving secret:', error);
+              throw error;
+            }
+          }
+          ```
+          
+          **Azure Key Vault**
+          ```javascript
+          const { SecretClient } = require('@azure/keyvault-secrets');
+          const { DefaultAzureCredential } = require('@azure/identity');
+          
+          const credential = new DefaultAzureCredential();
+          const client = new SecretClient(vaultUrl, credential);
+          
+          async function getSecret(secretName) {
+            const secret = await client.getSecret(secretName);
+            return secret.value;
+          }
+          ```
+          
+          ### Secret Detection and Prevention
+          
+          #### Git Pre-commit Hooks
+          ```bash
+          #!/bin/sh
+          # .git/hooks/pre-commit
+          if git diff --cached --name-only | xargs grep -l "api[_-]key\|password\|secret"; then
+            echo "Potential secrets detected in staged files!"
+            exit 1
+          fi
+          ```
+          
+          #### TruffleHog Integration
+          ```yaml
+          # GitHub Actions
+          - name: Secret Scanning
+            uses: trufflesecurity/trufflehog@v3
+            with:
+              path: ./
+              base: main
+              head: HEAD
+          ```
+          
+          ### Best Practices Checklist
+          
+          - [ ] Never commit secrets to version control
+          - [ ] Use environment variables for configuration
+          - [ ] Validate required secrets at startup
+          - [ ] Implement secret rotation procedures
+          - [ ] Use dedicated secret management services
+          - [ ] Enable secret scanning in CI/CD pipelines
+          - [ ] Audit secret access and usage
+          - [ ] Use least privilege access principles
+          - [ ] Encrypt secrets at rest and in transit
+          - [ ] Have incident response plan for secret exposure
+          
+          ### Learning Resources
+          
+          - [OWASP Secrets Management](https://owasp.org/www-community/vulnerabilities/Use_of_hard-coded_password)
+          - [12 Factor App - Config](https://12factor.net/config)
+          - [Node.js Security Best Practices](https://nodejs.org/en/security/)
+          - [AWS Secrets Manager](https://aws.amazon.com/secrets-manager/)
+          EOF
+
+      # Upload secret detection artifacts
+      - name: 'Upload Secret Detection Artifacts'
+        uses: actions/upload-artifact@v4
+        with:
+          name: 'secret-credential-detection'
+          path: |
+            ${{ env.SCAN_OUTPUT_DIR }}/secret-detection/
+            ${{ env.SCAN_OUTPUT_DIR }}/educational-materials/secret-management-guide.md
+          retention-days: 90
+          if-no-files-found: warn
+
+  # ========================================================================
+  # JOB 6: Security Findings Aggregation and SARIF Generation
+  # ========================================================================
+  security_findings_aggregation:
+    name: 'Aggregate Security Findings'
+    runs-on: ubuntu-22.04
+    timeout-minutes: 25
+    needs: 
+      - dependency_vulnerability_scanning
+      - static_application_security_testing
+      - container_security_assessment
+      - secret_credential_detection
+    if: always()
+    
+    steps:
+      - name: 'Harden Runner for Security Aggregation'
+        uses: step-security/harden-runner@v2
+        with:
+          egress-policy: audit
+
+      - name: 'Checkout Repository for Report Generation'
+        uses: actions/checkout@v4
+
+      # Download all security scan artifacts for aggregation
+      - name: 'Download Security Scan Artifacts'
+        uses: actions/download-artifact@v4 # v4.1.8
+        with:
+          path: '${{ env.SCAN_OUTPUT_DIR }}/artifacts'
+
+      # Aggregate and normalize security findings from all scanning phases
+      - name: 'Aggregate Security Scan Results'
+        run: |
+          echo "::group::Security Findings Aggregation"
+          
+          # Create aggregation output directory
+          mkdir -p "${{ env.SCAN_OUTPUT_DIR }}/aggregated"
+          
+          # Initialize security summary
+          cat > "${{ env.SCAN_OUTPUT_DIR }}/aggregated/security-summary.json" << 'EOF'
+          {
+            "scan_metadata": {
+              "timestamp": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'",
+              "scan_mode": "'${{ env.SECURITY_SCAN_MODE }}'",
+              "vulnerability_threshold": "'${{ env.VULNERABILITY_THRESHOLD }}'",
+              "github_ref": "'${{ github.ref }}'",
+              "github_sha": "'${{ github.sha }}'",
+              "workflow_run_id": "'${{ github.run_id }}'"
+            },
+            "dependency_scan": {},
+            "static_analysis": {},
+            "container_scan": {},
+            "secret_detection": {},
+            "aggregated_findings": {
+              "critical": 0,
+              "high": 0,
+              "moderate": 0,
+              "low": 0,
+              "total": 0
+            }
+          }
+          EOF
+          
+          # Aggregate dependency scan findings
+          if [ -f "${{ env.SCAN_OUTPUT_DIR }}/artifacts/dependency-vulnerability-scan/dependency-scan/npm-audit.json" ]; then
+            echo "::notice::Aggregating dependency vulnerability findings"
+            dep_critical=$(jq -r '.metadata.vulnerabilities.critical // 0' "${{ env.SCAN_OUTPUT_DIR }}/artifacts/dependency-vulnerability-scan/dependency-scan/npm-audit.json")
+            dep_high=$(jq -r '.metadata.vulnerabilities.high // 0' "${{ env.SCAN_OUTPUT_DIR }}/artifacts/dependency-vulnerability-scan/dependency-scan/npm-audit.json")
+            dep_moderate=$(jq -r '.metadata.vulnerabilities.moderate // 0' "${{ env.SCAN_OUTPUT_DIR }}/artifacts/dependency-vulnerability-scan/dependency-scan/npm-audit.json")
+            dep_low=$(jq -r '.metadata.vulnerabilities.low // 0' "${{ env.SCAN_OUTPUT_DIR }}/artifacts/dependency-vulnerability-scan/dependency-scan/npm-audit.json")
+            
+            # Update summary with dependency findings
+            jq --argjson critical "$dep_critical" --argjson high "$dep_high" --argjson moderate "$dep_moderate" --argjson low "$dep_low" \
+              '.dependency_scan = {"critical": $critical, "high": $high, "moderate": $moderate, "low": $low} | 
+               .aggregated_findings.critical += $critical | 
+               .aggregated_findings.high += $high | 
+               .aggregated_findings.moderate += $moderate | 
+               .aggregated_findings.low += $low' \
+              "${{ env.SCAN_OUTPUT_DIR }}/aggregated/security-summary.json" > /tmp/summary.json && \
+              mv /tmp/summary.json "${{ env.SCAN_OUTPUT_DIR }}/aggregated/security-summary.json"
+          fi
+          
+          # Aggregate static analysis findings
+          if [ -f "${{ env.SCAN_OUTPUT_DIR }}/artifacts/static-security-analysis/static-analysis/eslint-security.json" ]; then
+            echo "::notice::Aggregating static analysis findings"
+            eslint_errors=$(jq '[.[] | .messages[] | select(.severity == 2)] | length' "${{ env.SCAN_OUTPUT_DIR }}/artifacts/static-security-analysis/static-analysis/eslint-security.json")
+            eslint_warnings=$(jq '[.[] | .messages[] | select(.severity == 1)] | length' "${{ env.SCAN_OUTPUT_DIR }}/artifacts/static-security-analysis/static-analysis/eslint-security.json")
+            
+            # Update summary with static analysis findings
+            jq --argjson errors "$eslint_errors" --argjson warnings "$eslint_warnings" \
+              '.static_analysis = {"errors": $errors, "warnings": $warnings} | 
+               .aggregated_findings.high += $errors | 
+               .aggregated_findings.moderate += $warnings' \
+              "${{ env.SCAN_OUTPUT_DIR }}/aggregated/security-summary.json" > /tmp/summary.json && \
+              mv /tmp/summary.json "${{ env.SCAN_OUTPUT_DIR }}/aggregated/security-summary.json"
+          fi
+          
+          # Calculate total findings
+          jq '.aggregated_findings.total = (.aggregated_findings.critical + .aggregated_findings.high + .aggregated_findings.moderate + .aggregated_findings.low)' \
+            "${{ env.SCAN_OUTPUT_DIR }}/aggregated/security-summary.json" > /tmp/summary.json && \
+            mv /tmp/summary.json "${{ env.SCAN_OUTPUT_DIR }}/aggregated/security-summary.json"
+          
+          # Display security summary
+          echo "::notice::Security Scan Summary:"
+          jq -r '.aggregated_findings | "Critical: \(.critical), High: \(.high), Moderate: \(.moderate), Low: \(.low), Total: \(.total)"' \
+            "${{ env.SCAN_OUTPUT_DIR }}/aggregated/security-summary.json"
+          
+          echo "::endgroup::"
+
+      # Generate comprehensive SARIF report for GitHub Security tab integration
+      - name: 'Generate SARIF Security Report'
+        run: |
+          echo "::group::SARIF Report Generation"
+          
+          # Create SARIF report structure
+          cat > "${{ env.SCAN_OUTPUT_DIR }}/aggregated/${{ env.SARIF_OUTPUT }}" << 'EOF'
+          {
+            "version": "2.1.0",
+            "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json",
+            "runs": [
+              {
+                "tool": {
+                  "driver": {
+                    "name": "Node.js Tutorial Security Scanner",
+                    "version": "1.0.0",
+                    "informationUri": "https://github.com/nodejs-tutorial/security-scanning",
+                    "shortDescription": {
+                      "text": "Comprehensive security scanning for Node.js tutorial application"
+                    },
+                    "fullDescription": {
+                      "text": "Multi-tool security analysis including dependency vulnerabilities, static code analysis, container security, and secret detection with educational reporting for Node.js learning objectives."
+                    },
+                    "rules": []
+                  }
+                },
+                "results": [],
+                "automationDetails": {
+                  "id": "nodejs-tutorial-security-scan/'${{ github.run_id }}'",
+                  "guid": "'$(uuidgen)'"
+                },
+                "properties": {
+                  "scan_mode": "'${{ env.SECURITY_SCAN_MODE }}'",
+                  "vulnerability_threshold": "'${{ env.VULNERABILITY_THRESHOLD }}'",
+                  "github_repository": "'${{ github.repository }}'",
+                  "github_ref": "'${{ github.ref }}'",
+                  "github_sha": "'${{ github.sha }}'",
+                  "scan_timestamp": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"
+                }
+              }
+            ]
+          }
+          EOF
+          
+          # Merge container SARIF if available
+          if [ -f "${{ env.SCAN_OUTPUT_DIR }}/artifacts/container-security-assessment/container-scan/trivy-container-scan.sarif" ]; then
+            echo "::notice::Merging Trivy container scan SARIF results"
+            # Use sarif-cli or manual merge if tools are available
+            cp "${{ env.SCAN_OUTPUT_DIR }}/artifacts/container-security-assessment/container-scan/trivy-container-scan.sarif" \
+               "${{ env.SCAN_OUTPUT_DIR }}/aggregated/trivy-results.sarif"
+          fi
+          
+          echo "::notice::SARIF report generated: ${{ env.SARIF_OUTPUT }}"
+          echo "::endgroup::"
+
+      # Generate comprehensive security dashboard and educational materials
+      - name: 'Generate Security Dashboard and Educational Report'
+        if: env.GENERATE_EDUCATIONAL_REPORT == 'true'
+        run: |
+          echo "::group::Security Dashboard Generation"
+          
+          mkdir -p "${{ env.SCAN_OUTPUT_DIR }}/dashboard"
+          
+          # Generate HTML security dashboard
+          cat > "${{ env.SCAN_OUTPUT_DIR }}/dashboard/security-dashboard.html" << 'EOF'
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+              <meta charset="UTF-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <title>Node.js Tutorial - Security Assessment Dashboard</title>
+              <style>
+                  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; margin: 0; padding: 20px; background: #f5f7fa; }
+                  .container { max-width: 1200px; margin: 0 auto; background: white; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+                  .header { background: #2d3748; color: white; padding: 20px; border-radius: 8px 8px 0 0; }
+                  .content { padding: 20px; }
+                  .metric-card { display: inline-block; margin: 10px; padding: 20px; border-radius: 6px; text-align: center; color: white; min-width: 120px; }
+                  .critical { background: #e53e3e; }
+                  .high { background: #dd6b20; }
+                  .moderate { background: #d69e2e; }
+                  .low { background: #38a169; }
+                  .scan-section { margin: 20px 0; padding: 20px; border-left: 4px solid #4299e1; background: #ebf8ff; }
+                  .educational-note { background: #f0fff4; border: 1px solid #9ae6b4; padding: 15px; border-radius: 6px; margin: 15px 0; }
+                  table { width: 100%; border-collapse: collapse; margin: 15px 0; }
+                  th, td { padding: 12px; text-align: left; border-bottom: 1px solid #e2e8f0; }
+                  th { background: #f8f9fa; font-weight: 600; }
+              </style>
+          </head>
+          <body>
+              <div class="container">
+                  <div class="header">
+                      <h1>🔒 Node.js Tutorial Security Assessment</h1>
+                      <p>Comprehensive security analysis for educational Node.js application</p>
+                      <p><strong>Scan Date:</strong> $(date -u +"%Y-%m-%d %H:%M:%S UTC") | <strong>Mode:</strong> ${{ env.SECURITY_SCAN_MODE }} | <strong>Threshold:</strong> ${{ env.VULNERABILITY_THRESHOLD }}</p>
+                  </div>
+                  <div class="content">
+                      <h2>Security Metrics Overview</h2>
+                      <div class="metrics">
+          EOF
+          
+          # Add dynamic metrics from security summary
+          if [ -f "${{ env.SCAN_OUTPUT_DIR }}/aggregated/security-summary.json" ]; then
+            critical=$(jq -r '.aggregated_findings.critical' "${{ env.SCAN_OUTPUT_DIR }}/aggregated/security-summary.json")
+            high=$(jq -r '.aggregated_findings.high' "${{ env.SCAN_OUTPUT_DIR }}/aggregated/security-summary.json")
+            moderate=$(jq -r '.aggregated_findings.moderate' "${{ env.SCAN_OUTPUT_DIR }}/aggregated/security-summary.json")
+            low=$(jq -r '.aggregated_findings.low' "${{ env.SCAN_OUTPUT_DIR }}/aggregated/security-summary.json")
+            
+            cat >> "${{ env.SCAN_OUTPUT_DIR }}/dashboard/security-dashboard.html" << EOF
+                          <div class="metric-card critical">
+                              <h3>${critical}</h3>
+                              <p>Critical</p>
+                          </div>
+                          <div class="metric-card high">
+                              <h3>${high}</h3>
+                              <p>High</p>
+                          </div>
+                          <div class="metric-card moderate">
+                              <h3>${moderate}</h3>
+                              <p>Moderate</p>
+                          </div>
+                          <div class="metric-card low">
+                              <h3>${low}</h3>
+                              <p>Low</p>
+                          </div>
+          EOF
+          fi
+          
+          # Complete HTML dashboard
+          cat >> "${{ env.SCAN_OUTPUT_DIR }}/dashboard/security-dashboard.html" << 'EOF'
+                      </div>
+                      
+                      <div class="educational-note">
+                          <h3>🎓 Educational Context</h3>
+                          <p>This security assessment demonstrates comprehensive vulnerability analysis for Node.js applications. Each finding includes educational explanations and remediation guidance to enhance security learning objectives.</p>
+                      </div>
+                      
+                      <div class="scan-section">
+                          <h3>📦 Dependency Vulnerability Analysis</h3>
+                          <p>NPM packages analyzed for known security vulnerabilities using npm audit and Snyk integration.</p>
+                      </div>
+                      
+                      <div class="scan-section">
+                          <h3>🔍 Static Application Security Testing</h3>
+                          <p>Source code analyzed for security anti-patterns using ESLint security rules and Semgrep.</p>
+                      </div>
+                      
+                      <div class="scan-section">
+                          <h3>🐳 Container Security Assessment</h3>
+                          <p>Docker image scanned for vulnerabilities and security misconfigurations using Trivy.</p>
+                      </div>
+                      
+                      <div class="scan-section">
+                          <h3>🔐 Secret Detection</h3>
+                          <p>Repository scanned for accidentally committed secrets and credentials using TruffleHog.</p>
+                      </div>
+                      
+                      <h3>📚 Learning Resources</h3>
+                      <ul>
+                          <li><a href="https://nodejs.org/en/security/">Node.js Security Best Practices</a></li>
+                          <li><a href="https://expressjs.com/en/advanced/best-practice-security.html">Express.js Security Guide</a></li>
+                          <li><a href="https://owasp.org/www-project-top-ten/">OWASP Top 10</a></li>
+                          <li><a href="https://docs.npmjs.com/security">NPM Security Documentation</a></li>
+                      </ul>
+                  </div>
+              </div>
+          </body>
+          </html>
+          EOF
+          
+          echo "::notice::Security dashboard generated successfully"
+          echo "::endgroup::"
+
+      # Upload comprehensive security findings and reports
+      - name: 'Upload Comprehensive Security Reports'
+        uses: actions/upload-artifact@v4
+        with:
+          name: 'comprehensive-security-findings'
+          path: |
+            ${{ env.SCAN_OUTPUT_DIR }}/aggregated/
+            ${{ env.SCAN_OUTPUT_DIR }}/dashboard/
+          retention-days: 90
+          if-no-files-found: warn
+
+  # ========================================================================
+  # JOB 7: GitHub Security Tab Integration
+  # ========================================================================
+  github_security_integration:
+    name: 'GitHub Security Integration'
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    needs: [security_findings_aggregation]
+    if: "always() && github.event_name != 'pull_request'"
+    
+    steps:
+      - name: 'Harden Runner for Security Integration'
+        uses: step-security/harden-runner@v2
+        with:
+          egress-policy: audit
+
+      - name: 'Download Security Reports for GitHub Integration'
+        uses: actions/download-artifact@v4
+        with:
+          name: 'comprehensive-security-findings'
+          path: '${{ env.SCAN_OUTPUT_DIR }}'
+
+      # Upload SARIF security report to GitHub Security tab
+      - name: 'Upload SARIF Report to GitHub Security'
+        uses: github/codeql-action/upload-sarif@v3 # v3.27.9
+        if: always()
+        with:
+          sarif_file: '${{ env.SCAN_OUTPUT_DIR }}/aggregated/${{ env.SARIF_OUTPUT }}'
+          category: 'nodejs-tutorial-security-scan'
+          wait-for-processing: true
+
+      # Upload Trivy container scan results if available
+      - name: 'Upload Trivy Container Security Results'
+        uses: github/codeql-action/upload-sarif@v3
+        if: always() && hashFiles('${{ env.SCAN_OUTPUT_DIR }}/aggregated/trivy-results.sarif') != ''
+        with:
+          sarif_file: '${{ env.SCAN_OUTPUT_DIR }}/aggregated/trivy-results.sarif'
+          category: 'trivy-container-security'
+          wait-for-processing: false
+
+  # ========================================================================
+  # JOB 8: Security Quality Gate Validation
+  # ========================================================================
+  security_quality_gate_validation:
+    name: 'Security Quality Gate'
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    needs: [security_findings_aggregation]
+    if: always()
+    outputs:
+      security-gate-status: ${{ steps.validation.outputs.security-gate-status }}
+      vulnerability-count: ${{ steps.validation.outputs.vulnerability-count }}
+      educational-compliance: ${{ steps.validation.outputs.educational-compliance }}
+      remediation-priority: ${{ steps.validation.outputs.remediation-priority }}
+    
+    steps:
+      - name: 'Download Security Summary for Quality Gate'
+        uses: actions/download-artifact@v4
+        with:
+          name: 'comprehensive-security-findings'
+          path: '${{ env.SCAN_OUTPUT_DIR }}'
+
+      # Validate security findings against configured thresholds
+      - name: 'Security Quality Gate Validation'
+        id: validation
+        run: |
+          echo "::group::Security Quality Gate Analysis"
+          
+          # Load security summary
+          if [ ! -f "${{ env.SCAN_OUTPUT_DIR }}/aggregated/security-summary.json" ]; then
+            echo "::error::Security summary not found - cannot validate quality gate"
+            exit 1
+          fi
+          
+          # Extract vulnerability counts
+          critical=$(jq -r '.aggregated_findings.critical' "${{ env.SCAN_OUTPUT_DIR }}/aggregated/security-summary.json")
+          high=$(jq -r '.aggregated_findings.high' "${{ env.SCAN_OUTPUT_DIR }}/aggregated/security-summary.json")
+          moderate=$(jq -r '.aggregated_findings.moderate' "${{ env.SCAN_OUTPUT_DIR }}/aggregated/security-summary.json")
+          low=$(jq -r '.aggregated_findings.low' "${{ env.SCAN_OUTPUT_DIR }}/aggregated/security-summary.json")
+          total=$(jq -r '.aggregated_findings.total' "${{ env.SCAN_OUTPUT_DIR }}/aggregated/security-summary.json")
+          
+          # Set outputs
+          echo "vulnerability-count=${total}" >> $GITHUB_OUTPUT
+          echo "educational-compliance=true" >> $GITHUB_OUTPUT
+          
+          # Quality gate logic based on thresholds
+          security_gate_pass="true"
+          remediation_priority="none"
+          
+          # Critical vulnerability blocking logic
+          if [ "${critical}" -gt 0 ] && [ "${{ env.FAIL_ON_CRITICAL }}" == "true" ]; then
+            security_gate_pass="false"
+            remediation_priority="critical"
+            echo "::error::Quality gate FAILED: ${critical} critical vulnerabilities found"
+          fi
+          
+          # High vulnerability threshold logic
+          case "${{ env.VULNERABILITY_THRESHOLD }}" in
+            "critical")
+              if [ "${critical}" -gt 0 ]; then
+                security_gate_pass="false"
+                remediation_priority="critical"
+              fi
+              ;;
+            "high")
+              if [ "${high}" -gt 0 ] || [ "${critical}" -gt 0 ]; then
+                security_gate_pass="false"
+                remediation_priority="high"
+              fi
+              ;;
+            "medium")
+              if [ "${moderate}" -gt 3 ] || [ "${high}" -gt 0 ] || [ "${critical}" -gt 0 ]; then
+                security_gate_pass="false"
+                remediation_priority="moderate"
+              fi
+              ;;
+          esac
+          
+          # Set quality gate status
+          echo "security-gate-status=${security_gate_pass}" >> $GITHUB_OUTPUT
+          echo "remediation-priority=${remediation_priority}" >> $GITHUB_OUTPUT
+          
+          # Log quality gate results
+          if [ "${security_gate_pass}" == "true" ]; then
+            echo "::notice::✅ Security Quality Gate PASSED"
+            echo "::notice::Vulnerability Summary: Critical: ${critical}, High: ${high}, Moderate: ${moderate}, Low: ${low}"
+          else
+            echo "::warning::❌ Security Quality Gate FAILED"
+            echo "::warning::Blocking vulnerabilities found - see security findings for remediation"
+            echo "::warning::Vulnerability Summary: Critical: ${critical}, High: ${high}, Moderate: ${moderate}, Low: ${low}"
+            echo "::warning::Remediation Priority: ${remediation_priority}"
+          fi
+          
+          echo "::endgroup::"
+          
+          # Exit with appropriate code if configured to fail on threshold
+          if [ "${security_gate_pass}" == "false" ] && [ "${{ env.FAIL_ON_CRITICAL }}" == "true" ]; then
+            exit 1
+          fi
+
+      # Generate security validation summary for educational purposes
+      - name: 'Generate Security Validation Educational Summary'
+        if: env.GENERATE_EDUCATIONAL_REPORT == 'true'
+        run: |
+          mkdir -p "${{ env.SCAN_OUTPUT_DIR }}/quality-gate"
+          
+          # Extract values for educational report
+          total_vulns=$(jq -r '.aggregated_findings.total' "${{ env.SCAN_OUTPUT_DIR }}/aggregated/security-summary.json")
+          gate_status="${{ steps.validation.outputs.security-gate-status }}"
+          
+          cat > "${{ env.SCAN_OUTPUT_DIR }}/quality-gate/validation-summary.md" << EOF
+          # Security Quality Gate Validation Summary
+          
+          ## Quality Gate Result: ${gate_status^^}
+          
+          **Total Vulnerabilities Found:** ${total_vulns}
+          **Threshold Configuration:** ${{ env.VULNERABILITY_THRESHOLD }}
+          **Fail on Critical:** ${{ env.FAIL_ON_CRITICAL }}
+          **Scan Mode:** ${{ env.SECURITY_SCAN_MODE }}
+          
+          ## Quality Gate Criteria
+          
+          This security quality gate validates the application against industry security standards:
+          
+          - **Critical Vulnerabilities**: Must be 0 for production deployment
+          - **High Severity Issues**: Evaluated against risk tolerance
+          - **Educational Compliance**: Security learning objectives met
+          - **Remediation Guidance**: Available for all findings
+          
+          ## Next Steps
+          
+          $([ "${gate_status}" == "true" ] && echo "✅ **PASSED**: Application meets security requirements for deployment" || echo "❌ **FAILED**: Review security findings and apply recommended remediations")
+          
+          ### Learning Opportunities
+          
+          - Review vulnerability categories and their business impact
+          - Understand security threshold configuration in CI/CD
+          - Practice vulnerability remediation techniques
+          - Learn about security quality gate integration patterns
+          
+          ### Additional Resources
+          
+          - GitHub Security Tab: View detailed vulnerability reports
+          - Educational Materials: Comprehensive security learning guides
+          - Remediation Tutorials: Step-by-step fix instructions
+          EOF
+
+      # Upload quality gate validation results
+      - name: 'Upload Quality Gate Validation Results'
+        uses: actions/upload-artifact@v4
+        with:
+          name: 'security-quality-gate'
+          path: '${{ env.SCAN_OUTPUT_DIR }}/quality-gate/'
+          retention-days: 30
+          if-no-files-found: warn

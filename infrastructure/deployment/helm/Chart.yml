@@ -1,0 +1,89 @@
+# Helm Chart API v2 specification for modern Helm 3 compatibility
+apiVersion: v2
+
+# Chart identity and basic metadata
+name: nodejs-hello-tutorial
+version: 1.0.0
+appVersion: 1.0.0
+type: application
+
+# Comprehensive chart description for educational discovery
+description: A Helm chart for deploying the Node.js tutorial application with Express.js 5.1.0 framework demonstrating HTTP server fundamentals, Kubernetes deployment patterns, and container orchestration concepts
+
+# Kubernetes compatibility specification
+kubeVersion: ">=1.25.0"
+
+# Educational keywords optimized for discovery and learning progression
+keywords:
+  - nodejs
+  - express
+  - tutorial
+  - education
+  - kubernetes
+  - helm
+  - http-server
+  - learning
+  - javascript
+  - backend
+  - web-development
+  - container
+  - orchestration
+  - beginner
+
+# Project URLs and documentation links
+home: https://github.com/nodejs-tutorial/hello-world
+sources:
+  - https://github.com/nodejs-tutorial/hello-world
+
+# Maintainer information for support and community
+maintainers:
+  - name: Node.js Tutorial Team
+    email: tutorial@nodejs.example.com
+    url: https://github.com/nodejs-tutorial
+
+# Chart dependencies (none for this educational application)
+dependencies: []
+
+# Educational and discovery annotations
+annotations:
+  # Chart classification and categorization
+  category: Education
+  licenses: MIT
+  
+  # OpenShift compatibility
+  charts.openshift.io/name: nodejs-hello-tutorial
+  
+  # Artifact Hub metadata for enhanced discovery
+  artifacthub.io/license: MIT
+  artifacthub.io/links: |
+    - name: Tutorial Documentation
+      url: https://github.com/nodejs-tutorial/hello-world/blob/main/docs/
+    - name: Express.js Framework
+      url: https://expressjs.com/
+    - name: Node.js Runtime
+      url: https://nodejs.org/
+  artifacthub.io/images: |
+    - name: nodejs-tutorial
+      image: nodejs-tutorial:1.0.0
+  artifacthub.io/operator: "false"
+  artifacthub.io/operatorCapabilities: Basic Install
+  
+  # Tutorial-specific metadata for educational organization
+  tutorial.example.com/framework: express
+  tutorial.example.com/version: "5.1.0"
+  tutorial.example.com/node-version: "22"
+  tutorial.example.com/concepts: http-server,rest-api,kubernetes-deployment
+  tutorial.example.com/learning-objectives: helm-charts,kubernetes-deployment,container-orchestration
+  
+  # Educational progression and difficulty metadata
+  education.example.com/difficulty: beginner
+  education.example.com/duration: 30-60 minutes
+  education.example.com/prerequisites: basic-kubernetes,basic-docker
+  
+  # Security and operational annotations
+  security.example.com/non-root: "true"
+  security.example.com/read-only-root: "true"
+  
+  # Monitoring and observability integration
+  monitoring.example.com/health-checks: "true"
+  monitoring.example.com/prometheus: optional

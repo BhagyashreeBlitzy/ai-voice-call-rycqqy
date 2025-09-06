@@ -1,0 +1,475 @@
+# Default values for nodejs-hello-tutorial Helm chart
+# This values file provides comprehensive configuration for deploying the Node.js tutorial application
+# with Express.js 5.1.0 framework across multiple environments with production-ready defaults
+
+# Global chart metadata aligned with Chart.yml
+global:
+  # Chart identification matching Chart.yml metadata
+  name: nodejs-hello-tutorial
+  version: "1.0.0"
+  appVersion: "1.0.0"
+  
+  # Educational metadata for tutorial context
+  tutorial:
+    framework: "express"
+    frameworkVersion: "5.1.0"
+    nodeVersion: "22"
+    concepts: ["http-server", "rest-api", "kubernetes-deployment"]
+    learningObjectives: ["helm-charts", "kubernetes-deployment", "container-orchestration"]
+
+# Deployment configuration for application scaling and management
+replicaCount: 1
+
+# Deployment strategy configuration for rolling updates
+deploymentStrategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxUnavailable: 1
+    maxSurge: 1
+
+# Revision history limit for deployment rollbacks
+revisionHistoryLimit: 3
+
+# Container image configuration aligned with application metadata
+image:
+  # Container registry and repository settings
+  repository: nodejs-tutorial
+  pullPolicy: IfNotPresent
+  tag: "1.0.0"
+  
+  # Image pull secrets for private registries (empty for public images)
+  pullSecrets: []
+
+# Container port configuration matching Express.js application
+ports:
+  - name: http
+    containerPort: 3000
+    protocol: TCP
+
+# Environment variables configuration for Node.js application
+env:
+  # Static environment variables for all environments
+  static:
+    - name: NODE_ENV
+      value: "production"
+    - name: PORT
+      value: "3000"
+    - name: HOST
+      value: "0.0.0.0"
+    - name: LOG_LEVEL
+      value: "info"
+  
+  # Environment variables from ConfigMaps and Secrets (none required for tutorial)
+  envFrom: []
+  configMapRef: null
+  secretRef: null
+
+# Resource management with production-ready defaults
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+# Security context configuration for container and pod security
+securityContext:
+  # Container-level security context
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: false
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  capabilities:
+    drop:
+      - ALL
+
+# Pod-level security context
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+  seccompProfile:
+    type: RuntimeDefault
+
+# Health check configuration with multiple probe types
+healthChecks:
+  # Liveness probe to detect application deadlock
+  livenessProbe:
+    httpGet:
+      path: /livez
+      port: http
+    initialDelaySeconds: 30
+    periodSeconds: 30
+    timeoutSeconds: 5
+    failureThreshold: 3
+    successThreshold: 1
+  
+  # Readiness probe to control traffic routing
+  readinessProbe:
+    httpGet:
+      path: /readyz
+      port: http
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 3
+    failureThreshold: 3
+    successThreshold: 1
+  
+  # Startup probe for slow-starting applications
+  startupProbe:
+    httpGet:
+      path: /health
+      port: http
+    initialDelaySeconds: 10
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 6
+    successThreshold: 1
+
+# Service configuration for internal cluster communication
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 3000
+  protocol: TCP
+  annotations: {}
+  sessionAffinity: None
+  ipFamilies:
+    - IPv4
+  ipFamilyPolicy: SingleStack
+
+# Ingress configuration for external traffic routing
+ingress:
+  enabled: false
+  className: nginx
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
+  hosts:
+    - host: nodejs-tutorial.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+# Monitoring and observability configuration
+monitoring:
+  enabled: true
+  prometheus:
+    enabled: true
+    path: /health
+    port: 3000
+    interval: 30s
+  serviceMonitor:
+    enabled: false
+    namespace: ""
+    labels: {}
+    annotations: {}
+
+# Pod configuration and scheduling preferences
+podAnnotations: {}
+podLabels: {}
+nodeSelector: {}
+tolerations: []
+affinity: {}
+topologySpreadConstraints: []
+terminationGracePeriodSeconds: 30
+dnsPolicy: ClusterFirst
+
+# Service account configuration for RBAC
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+  automountServiceAccountToken: true
+
+# Role-based access control configuration
+rbac:
+  create: true
+  rules: []
+
+# ConfigMap configuration for application configuration
+configMap:
+  create: false
+  data: {}
+
+# Secret configuration for sensitive data
+secrets:
+  create: false
+  data: {}
+
+# Persistent volume configuration (not required for stateless app)
+persistence:
+  enabled: false
+  storageClass: ""
+  accessModes:
+    - ReadWriteOnce
+  size: 1Gi
+  annotations: {}
+
+# Horizontal Pod Autoscaler configuration for automatic scaling
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 80
+  targetMemoryUtilizationPercentage: 80
+
+# Network policy configuration for traffic filtering
+networkPolicy:
+  enabled: false
+  ingress: []
+  egress: []
+
+# Pod disruption budget for high availability
+podDisruptionBudget:
+  enabled: false
+  minAvailable: 1
+  maxUnavailable: ""
+
+# Environment-specific overrides for multi-environment deployment
+environmentOverrides:
+  # Development environment configuration
+  development:
+    replicaCount: 1
+    image:
+      tag: "dev"
+    resources:
+      limits:
+        cpu: 200m
+        memory: 256Mi
+      requests:
+        cpu: 50m
+        memory: 64Mi
+    env:
+      static:
+        - name: NODE_ENV
+          value: "development"
+        - name: LOG_LEVEL
+          value: "debug"
+    ingress:
+      enabled: false
+    monitoring:
+      enabled: true
+      prometheus:
+        enabled: false
+    autoscaling:
+      enabled: false
+
+  # Staging environment configuration
+  staging:
+    replicaCount: 2
+    image:
+      tag: "staging"
+    resources:
+      limits:
+        cpu: 500m
+        memory: 512Mi
+      requests:
+        cpu: 100m
+        memory: 128Mi
+    env:
+      static:
+        - name: NODE_ENV
+          value: "staging"
+        - name: LOG_LEVEL
+          value: "info"
+    ingress:
+      enabled: true
+      hosts:
+        - host: staging.nodejs-tutorial.example.com
+          paths:
+            - path: /
+              pathType: Prefix
+    monitoring:
+      enabled: true
+      prometheus:
+        enabled: true
+      serviceMonitor:
+        enabled: false
+    autoscaling:
+      enabled: false
+
+  # Production environment configuration
+  production:
+    replicaCount: 3
+    image:
+      tag: "1.0.0"
+    resources:
+      limits:
+        cpu: 1000m
+        memory: 1Gi
+      requests:
+        cpu: 250m
+        memory: 256Mi
+    env:
+      static:
+        - name: NODE_ENV
+          value: "production"
+        - name: LOG_LEVEL
+          value: "warn"
+    ingress:
+      enabled: true
+      hosts:
+        - host: nodejs-tutorial.example.com
+          paths:
+            - path: /
+              pathType: Prefix
+      tls:
+        - secretName: nodejs-tutorial-tls
+          hosts:
+            - nodejs-tutorial.example.com
+    monitoring:
+      enabled: true
+      prometheus:
+        enabled: true
+      serviceMonitor:
+        enabled: true
+        labels:
+          monitoring: prometheus
+    autoscaling:
+      enabled: true
+      minReplicas: 3
+      maxReplicas: 10
+      targetCPUUtilizationPercentage: 70
+      targetMemoryUtilizationPercentage: 80
+    podDisruptionBudget:
+      enabled: true
+      minAvailable: 2
+    resources:
+      limits:
+        cpu: 1000m
+        memory: 1Gi
+      requests:
+        cpu: 250m
+        memory: 256Mi
+
+# Cloud provider specific configurations
+cloudProvider:
+  # AWS specific configurations
+  aws:
+    loadBalancerAnnotations:
+      service.beta.kubernetes.io/aws-load-balancer-type: nlb
+      service.beta.kubernetes.io/aws-load-balancer-backend-protocol: http
+    ingressAnnotations:
+      kubernetes.io/ingress.class: alb
+      alb.ingress.kubernetes.io/target-type: ip
+  
+  # Google Cloud Platform specific configurations
+  gcp:
+    loadBalancerAnnotations:
+      cloud.google.com/neg: '{"ingress": true}'
+    ingressAnnotations:
+      kubernetes.io/ingress.class: gce
+  
+  # Microsoft Azure specific configurations
+  azure:
+    loadBalancerAnnotations:
+      service.beta.kubernetes.io/azure-load-balancer-health-probe-request-path: /health
+    ingressAnnotations:
+      kubernetes.io/ingress.class: azure/application-gateway
+
+# Educational configuration for tutorial purposes
+educational:
+  # Tutorial metadata for learning context
+  tutorialMetadata:
+    learningObjectives:
+      - "Understand Helm values file structure and configuration patterns"
+      - "Learn multi-environment deployment configuration with value overrides"
+      - "Practice Kubernetes resource configuration through Helm values"
+      - "Implement security best practices in container orchestration"
+      - "Configure monitoring and observability in Kubernetes deployments"
+      - "Apply resource management and scaling configuration patterns"
+      - "Learn ingress configuration for external traffic routing"
+    conceptsDemonstrated:
+      - "Helm values-based configuration management"
+      - "Kubernetes deployment scaling and resource management"
+      - "Container security contexts and non-root user execution"
+      - "Service networking and port configuration"
+      - "Ingress routing and TLS termination"
+      - "Health check configuration and monitoring integration"
+      - "Environment-specific configuration overrides"
+  
+  # Deployment scenarios for different learning stages
+  deploymentScenarios:
+    localDevelopment:
+      description: "Local Kubernetes deployment with minimal resources"
+      valuesOverride: "values-dev.yaml"
+      keyDifferences: "Single replica, development image tag, ingress disabled"
+    stagingEnvironment:
+      description: "Pre-production testing with staging domain"
+      valuesOverride: "values-staging.yaml"
+      keyDifferences: "Multiple replicas, staging domain, basic monitoring"
+    productionEnvironment:
+      description: "Production deployment with high availability"
+      valuesOverride: "values-prod.yaml"
+      keyDifferences: "High replica count, TLS certificates, full monitoring"
+
+# Validation schema for values structure
+validation:
+  requiredFields:
+    - replicaCount
+    - image.repository
+    - image.tag
+    - service.port
+    - service.targetPort
+  fieldTypes:
+    replicaCount: number
+    image: object
+    service: object
+    resources: object
+    securityContext: object
+  constraints:
+    replicaCount:
+      minimum: 1
+      maximum: 100
+    service:
+      port:
+        minimum: 1
+        maximum: 65535
+    resources:
+      limits:
+        cpu: "pattern: /^[0-9]+m?$/"
+        memory: "pattern: /^[0-9]+(Mi|Gi)$/"
+
+# Template integration configuration
+templateIntegration:
+  deployment:
+    usedValues:
+      - replicaCount
+      - image
+      - resources
+      - securityContext
+      - healthChecks
+      - env
+    templatePath: ./templates/deployment.yml
+  service:
+    usedValues:
+      - service
+      - monitoring
+    templatePath: ./templates/service.yml
+  ingress:
+    usedValues:
+      - ingress
+      - service.port
+    templatePath: ./templates/ingress.yml
+
+# Operational configuration for production environments
+operational:
+  backupStrategy: "Stateless application - no backup required"
+  disasterRecovery: "Helm rollback capability with revision history"
+  monitoringIntegration: "Prometheus metrics and health endpoints"
+  loggingConfiguration: "Container stdout/stderr logging"
+  securityScanning: "Container image vulnerability scanning"
+  complianceRequirements: "CIS Kubernetes benchmarks compliance"
+
+# Performance tuning configuration
+performance:
+  resourceOptimization: "Right-sized CPU and memory requests/limits"
+  startupOptimization: "Optimized health check intervals"
+  networkingOptimization: "Service mesh compatibility"
+  scalingParameters: "HPA configuration for demand-based scaling"

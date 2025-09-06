@@ -1,0 +1,402 @@
+# =============================================================================
+# PROMETHEUS SERVER CONFIGURATION FOR NODE.JS TUTORIAL APPLICATION
+# =============================================================================
+#
+# This configuration file defines comprehensive metrics collection, scraping targets,
+# and monitoring rules for the Node.js tutorial application. It demonstrates
+# production-ready observability patterns while maintaining educational clarity
+# for learning monitoring and observability concepts with Prometheus 2.40.0.
+#
+# Key Features:
+# - Multi-endpoint scraping strategy for comprehensive application monitoring
+# - Docker Compose service discovery with proper network connectivity
+# - Health check integration for Kubernetes-compatible probes
+# - Educational monitoring architecture with high learning value
+# - Performance monitoring for 50ms response time targets and 99.9% availability
+# - Container orchestration monitoring with Docker network support
+#
+# Architecture:
+# - Global configuration for consistent scraping behavior across all jobs
+# - Scrape configurations targeting different aspects of application monitoring
+# - Rule files for alerting on performance degradation and availability issues
+# - Alerting integration with external notification systems
+# - Storage configuration optimized for educational and development use
+#
+# Compatible with:
+# - Node.js 22.x LTS application with Express.js 5.1.0 framework
+# - Docker Compose orchestration with nodejs-tutorial-app service
+# - Prometheus 2.40.0 with PromQL query language and time-series storage
+# - Grafana integration for visualization and dashboard creation
+#
+# Educational Value:
+# - Demonstrates essential Prometheus configuration patterns and best practices
+# - Shows service discovery and target configuration in containerized environments
+# - Illustrates alerting rule implementation with appropriate thresholds
+# - Provides examples of metric collection strategies for web applications
+# - Showcases integration patterns between monitoring stack components
+#
+# @author Node.js Tutorial Team
+# @version 1.0.0
+# @educational_focus Prometheus server configuration, metrics collection, and observability
+
+# =============================================================================
+# GLOBAL CONFIGURATION
+# =============================================================================
+
+global:
+  # Global default scrape interval for all jobs - 15 seconds provides good balance
+  # between monitoring granularity and system load for educational environments
+  scrape_interval: 15s
+  
+  # Rule evaluation interval for alerting rules - matches scrape interval for consistency
+  # and ensures timely alert evaluation without excessive system overhead
+  evaluation_interval: 15s
+  
+  # Default scrape timeout - 10 seconds provides sufficient time for application response
+  # while preventing hung scrapes from blocking the monitoring pipeline
+  scrape_timeout: 10s
+  
+  # External labels added to all time series collected by this Prometheus instance
+  # These labels help identify data source in federation scenarios and multi-environment setups
+  external_labels:
+    monitor: 'nodejs-tutorial-monitor'    # Identifies this monitoring instance
+    environment: 'development'           # Environment context for metric correlation
+    cluster: 'tutorial-cluster'          # Cluster identification for scaling scenarios
+    region: 'local'                      # Geographic or logical region designation
+  
+  # Query log file for debugging and performance analysis of PromQL queries
+  # Enables operational visibility into query patterns and optimization opportunities
+  query_log_file: '/tmp/prometheus_query.log'
+
+# =============================================================================
+# ALERTING CONFIGURATION
+# =============================================================================
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - 'alertmanager:9093'     # Alertmanager service endpoint in Docker network
+      scheme: http                   # HTTP protocol for internal service communication
+      timeout: 10s                  # Timeout for alertmanager communication
+      api_version: v1               # Alertmanager API version for compatibility
+      
+  # Alert relabeling for enhanced alert context and routing
+  alert_relabel_configs:
+    - source_labels: [alertname]
+      target_label: service
+      replacement: 'nodejs-tutorial'
+    - source_labels: [instance]
+      target_label: service_instance  
+      replacement: 'tutorial-${1}'
+
+# =============================================================================
+# RULE FILES FOR ALERTING
+# =============================================================================
+
+rule_files:
+  # Application-specific alerting rules for performance and availability monitoring
+  - "/etc/prometheus/rules/nodejs-tutorial-alerts.yml"
+  
+  # System-level alerting rules for resource monitoring and health checks
+  - "/etc/prometheus/rules/system-alerts.yml"
+  
+  # Business logic alerting rules for application-specific metrics and SLAs
+  - "/etc/prometheus/rules/business-alerts.yml"
+
+# =============================================================================
+# SCRAPE CONFIGURATIONS
+# =============================================================================
+
+scrape_configs:
+  # -------------------------------------------------------------------------
+  # PRIMARY APPLICATION METRICS SCRAPING
+  # -------------------------------------------------------------------------
+  
+  - job_name: 'nodejs-tutorial-app'
+    # High-frequency scraping for detailed application performance monitoring
+    scrape_interval: 5s
+    scrape_timeout: 5s
+    
+    # Primary metrics endpoint providing comprehensive application telemetry
+    metrics_path: '/metrics'
+    scheme: http
+    
+    # Honor labels from the target for metric authenticity and proper attribution
+    honor_labels: true
+    honor_timestamps: true
+    
+    # Sample limit to prevent memory exhaustion from high-cardinality metrics
+    sample_limit: 5000
+    
+    # Target timeout for individual scrape operations
+    follow_redirects: true
+    
+    # Static configuration for Docker Compose service discovery
+    static_configs:
+      - targets:
+          - 'nodejs-tutorial-app:3000'   # Docker service name and port
+        labels:
+          service: 'nodejs-tutorial'     # Service identification
+          component: 'application'       # Component type for filtering
+          version: '1.0.0'              # Application version for deployment tracking
+          tier: 'application'           # Architecture tier designation
+          
+    # Metric relabeling for improved organization and query efficiency
+    metric_relabel_configs:
+      # Transform Node.js tutorial metrics for consistent naming
+      - source_labels: [__name__]
+        regex: 'nodejs_tutorial_(.*)'
+        target_label: 'metric_type'
+        replacement: '${1}'
+        
+      # Add service instance label for multi-instance scenarios  
+      - source_labels: [instance]
+        target_label: 'service_instance'
+        replacement: 'nodejs-tutorial-${1}'
+        
+      # Standardize application metrics labeling
+      - source_labels: [__name__]
+        regex: '(nodejs_tutorial_http_.*)'
+        target_label: 'category'
+        replacement: 'http_metrics'
+
+  # -------------------------------------------------------------------------
+  # HEALTH CHECK MONITORING
+  # -------------------------------------------------------------------------
+  
+  - job_name: 'nodejs-tutorial-health'
+    # Moderate frequency for health status monitoring
+    scrape_interval: 10s
+    scrape_timeout: 8s
+    
+    # Health endpoint for service availability monitoring
+    metrics_path: '/health'
+    scheme: http
+    
+    # Query parameters for detailed health information
+    params:
+      detailed: ['true']              # Request comprehensive health data
+      format: ['prometheus']          # Prometheus-compatible response format
+      
+    static_configs:
+      - targets:
+          - 'nodejs-tutorial-app:3000'
+        labels:
+          service: 'nodejs-tutorial'
+          component: 'health-checks'
+          probe_type: 'health'
+          monitor: 'availability'
+          
+    # Health metric relabeling for consistent health monitoring
+    metric_relabel_configs:
+      # Transform health metrics for better organization
+      - source_labels: [__name__]
+        regex: 'nodejs_tutorial_health_(.*)'
+        target_label: 'health_metric'
+        replacement: '${1}'
+        
+      # Add availability context to health metrics
+      - source_labels: [__name__]
+        regex: '(.*_health_.*)'
+        target_label: 'metric_category' 
+        replacement: 'availability'
+
+  # -------------------------------------------------------------------------
+  # KUBERNETES-STYLE LIVENESS PROBES
+  # -------------------------------------------------------------------------
+  
+  - job_name: 'kubernetes-liveness-probes'
+    # Lower frequency for liveness checks as they indicate basic process health
+    scrape_interval: 30s
+    scrape_timeout: 10s
+    
+    # Kubernetes liveness probe endpoint
+    metrics_path: '/livez'
+    scheme: http
+    
+    static_configs:
+      - targets:
+          - 'nodejs-tutorial-app:3000'
+        labels:
+          service: 'nodejs-tutorial'
+          component: 'kubernetes-probes'
+          probe_type: 'liveness'
+          orchestration: 'kubernetes'
+          
+    # Additional scraping parameters for probe compatibility
+    honor_timestamps: true
+    follow_redirects: true
+
+  # -------------------------------------------------------------------------
+  # KUBERNETES-STYLE READINESS PROBES  
+  # -------------------------------------------------------------------------
+  
+  - job_name: 'kubernetes-readiness-probes'
+    # Readiness checks to determine if service can accept traffic
+    scrape_interval: 30s
+    scrape_timeout: 10s
+    
+    # Kubernetes readiness probe endpoint
+    metrics_path: '/readyz'
+    scheme: http
+    
+    static_configs:
+      - targets:
+          - 'nodejs-tutorial-app:3000'
+        labels:
+          service: 'nodejs-tutorial'
+          component: 'kubernetes-probes'
+          probe_type: 'readiness'
+          orchestration: 'kubernetes'
+
+  # -------------------------------------------------------------------------
+  # NODE EXPORTER FOR SYSTEM METRICS
+  # -------------------------------------------------------------------------
+  
+  - job_name: 'node-exporter'
+    # System-level metrics collection for hardware and OS monitoring
+    scrape_interval: 15s
+    scrape_timeout: 10s
+    
+    static_configs:
+      - targets:
+          - 'node-exporter:9100'       # Node exporter service endpoint
+        labels:
+          service: 'node-exporter'
+          component: 'system-metrics'
+          collector: 'node'
+          
+    # Node exporter specific metric relabeling
+    metric_relabel_configs:
+      # Add system context to node metrics
+      - source_labels: [__name__]
+        regex: 'node_(.*)'
+        target_label: 'metric_type'
+        replacement: 'system_${1}'
+
+  # -------------------------------------------------------------------------
+  # PROMETHEUS SELF-MONITORING
+  # -------------------------------------------------------------------------
+  
+  - job_name: 'prometheus-self'
+    # Self-monitoring for Prometheus server operational health
+    scrape_interval: 15s
+    scrape_timeout: 10s
+    
+    static_configs:
+      - targets:
+          - 'localhost:9090'           # Prometheus server itself
+        labels:
+          service: 'prometheus'
+          component: 'server'
+          monitor: 'self'
+          role: 'monitoring'
+          
+    # Prometheus internal metric relabeling
+    metric_relabel_configs:
+      # Categorize Prometheus internal metrics
+      - source_labels: [__name__]
+        regex: 'prometheus_(.*)'
+        target_label: 'prometheus_metric'
+        replacement: '${1}'
+
+# =============================================================================
+# STORAGE CONFIGURATION
+# =============================================================================
+
+# Time series database configuration for metric storage and retention
+storage:
+  tsdb:
+    # Persistent storage path for time-series data
+    path: /prometheus
+    
+    # Data retention configuration balances storage usage with historical analysis needs
+    retention:
+      time: 15d                     # Keep data for 15 days for educational analysis
+      size: 1GB                     # Maximum storage size limit for development environments
+    
+    # Block duration settings for optimal query performance and compaction efficiency
+    min_block_duration: 2h         # Minimum time range for data blocks
+    max_block_duration: 25h        # Maximum time range before compaction
+    
+    # Operational settings for storage management
+    no_lockfile: false             # Enable lockfile for safe concurrent access
+    allow_overlapping_blocks: false # Prevent data corruption from overlapping blocks
+    wal_compression: true          # Enable WAL compression to reduce disk I/O
+
+# =============================================================================
+# WEB CONSOLE CONFIGURATION
+# =============================================================================
+
+# Web interface configuration for Prometheus UI and API access
+web:
+  # Network binding configuration for web console access
+  listen_address: '0.0.0.0:9090'   # Bind to all interfaces for Docker accessibility
+  external_url: 'http://localhost:9090'  # External URL for proper link generation
+  route_prefix: '/'                # Root path for web interface
+  
+  # Administrative features for operational management
+  enable_lifecycle: true           # Enable lifecycle management API endpoints
+  enable_admin_api: false          # Disable admin API for security in development
+  
+  # Console templates and libraries for custom web interface elements
+  console_templates: '/etc/prometheus/consoles'
+  console_libraries: '/etc/prometheus/console_libraries'
+  
+  # Security and operational settings
+  max_connections: 512             # Maximum concurrent web connections
+  read_timeout: 30s               # HTTP read timeout for web requests
+
+# =============================================================================
+# REMOTE WRITE CONFIGURATION
+# =============================================================================
+
+# Remote write configurations for external time-series databases
+# Currently disabled for tutorial simplicity - would be used for:
+# - Long-term storage in cloud TSDB systems
+# - Multi-cluster federation scenarios  
+# - External analytics platforms
+remote_write: []
+
+# =============================================================================
+# REMOTE READ CONFIGURATION  
+# =============================================================================
+
+# Remote read configurations for external time-series data sources
+# Currently disabled for tutorial simplicity - would enable:
+# - Historical data access from external systems
+# - Federated query capabilities across multiple Prometheus instances
+# - Integration with cloud-based time-series databases
+remote_read: []
+
+# =============================================================================
+# ADDITIONAL CONFIGURATION SECTIONS
+# =============================================================================
+
+# Tracing configuration for distributed tracing integration
+# Disabled for tutorial scope to maintain simplicity
+tracing:
+  endpoint: ""
+  insecure: true
+  timeout: 5s
+  headers: {}
+
+# Runtime information and feature flags
+# These settings provide operational context and enable/disable features
+runtime_info:
+  start_time_metric: true          # Expose Prometheus start time as metric
+  
+# Global query settings for PromQL execution
+query:
+  # Maximum query execution time to prevent resource exhaustion
+  timeout: 2m
+  
+  # Maximum number of samples a single query can process
+  max_samples: 50000000
+  
+  # Maximum concurrent queries to prevent system overload  
+  max_concurrency: 20
+  
+  # Query result size limits for memory management
+  max_series_limit: 10000

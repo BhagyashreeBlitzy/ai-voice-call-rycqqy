@@ -1,0 +1,367 @@
+# =============================================================================
+# TERRAFORM VARIABLES EXAMPLE CONFIGURATION
+# Node.js Tutorial Application - Google Cloud Platform Infrastructure
+# =============================================================================
+#
+# This file provides comprehensive example values for all Terraform variables
+# defined in variables.tf, demonstrating multi-environment deployment patterns
+# with educational documentation, cost optimization guidance, and security
+# best practices for Google Cloud Platform infrastructure.
+#
+# USAGE INSTRUCTIONS:
+# 1. Copy this file: cp terraform.tfvars.example terraform.tfvars
+# 2. Update project_id with your actual GCP project ID (REQUIRED)
+# 3. Customize other variables based on your environment needs
+# 4. Authenticate: gcloud auth application-default login
+# 5. Deploy: terraform init && terraform plan && terraform apply
+#
+# IMPORTANT SECURITY NOTICE:
+# - Never commit terraform.tfvars to version control (add to .gitignore)
+# - Use gcloud auth application-default login for development authentication
+# - Enable billing on your GCP project before deploying infrastructure
+#
+# =============================================================================
+
+# =============================================================================
+# GOOGLE CLOUD PLATFORM CONFIGURATION
+# =============================================================================
+# These variables establish your GCP project context and authentication for
+# infrastructure provisioning. The project_id is the only required variable.
+
+# REQUIRED: Your Google Cloud Project ID
+# Must be globally unique across all Google Cloud projects (6-30 characters)
+# Examples: "my-nodejs-tutorial-dev", "my-company-k8s-learning", "nodejs-tutorial-123"
+project_id = "my-nodejs-tutorial-dev"
+
+# GCP region for resource deployment
+# Choose region closest to your users for lower latency
+# us-central1 is often most cost-effective for learning environments
+# Options: "us-central1", "us-east1", "europe-west1", "asia-northeast1"
+region = "us-central1"
+
+# Specific zone within the region for zonal resources
+# Must be within the specified region above
+# Use -a zones for consistent availability
+zone = "us-central1-a"
+
+# Path to Google Cloud service account credentials file
+# For development, use: gcloud auth application-default login (recommended)
+# For CI/CD, use service account key file path
+# NEVER commit service account keys to version control
+google_credentials_file = "~/.config/gcloud/application_default_credentials.json"
+# Alternative for service account keys (use with caution):
+# google_credentials_file = "./service-account-key.json"
+
+# =============================================================================
+# ENVIRONMENT CONFIGURATION
+# =============================================================================
+# These settings organize resources by environment and provide consistent
+# naming across your infrastructure for cost tracking and management.
+
+# Environment identifier for resource naming and labeling
+# Use "development" for learning, "staging" for testing, "production" for live
+environment = "development"
+
+# Prefix for cluster naming (final name: {prefix}-{environment})
+# Choose descriptive names for easy resource identification
+# Examples: "nodejs-tutorial", "hello-world-app", "learning-cluster"
+cluster_name_prefix = "nodejs-tutorial"
+
+# Resource labels for organization, cost tracking, and operational management
+# Customize these labels to match your organization's tagging strategy
+labels = {
+  project      = "nodejs-hello-tutorial"
+  application  = "hello-world"
+  framework    = "express"
+  language     = "nodejs"
+  tutorial     = "true"
+  managed-by   = "terraform"
+  team         = "learning"
+  cost-center  = "education"
+  environment  = "development"
+}
+
+# =============================================================================
+# GKE CLUSTER CONFIGURATION
+# =============================================================================
+# These variables control cluster size, performance, and cost. Start with
+# smaller values for learning, scale up for production workloads.
+
+# Initial number of nodes when cluster is created
+# 1 node: Sufficient for learning ($25-50/month depending on machine type)
+# 2 nodes: Better availability and load distribution
+# 3+ nodes: Production-ready with high availability
+cluster_node_count = 2
+
+# Minimum nodes for auto-scaling (cluster will never go below this)
+# Set to 1 for cost efficiency during low-usage periods
+# Set to 2+ for production high availability requirements
+cluster_min_nodes = 1
+
+# Maximum nodes for auto-scaling (prevents runaway costs)
+# Conservative limits protect against unexpected scaling costs
+# Adjust based on actual load testing and capacity requirements
+cluster_max_nodes = 5
+
+# Machine type for cluster nodes (major cost factor)
+# e2-micro:      ~$6/month  (cheapest, limited resources)
+# e2-small:      ~$12/month (budget option)
+# e2-medium:     ~$24/month (balanced for development)
+# e2-standard-2: ~$48/month (production option)
+node_machine_type = "e2-medium"
+
+# Boot disk size for each node in GB
+# 30GB: Minimum required by GKE
+# 50GB: Recommended for multiple container images
+# 100GB+: Production with many applications and images
+# Cost: ~$0.17/GB/month for SSD storage
+node_disk_size_gb = 50
+
+# Kubernetes version (use recent stable version)
+# Check GKE release notes for supported versions and features
+# Recommended: Use 1.28+ for latest security patches and features
+kubernetes_version = "1.28"
+
+# =============================================================================
+# NETWORK CONFIGURATION
+# =============================================================================
+# These IP ranges configure cluster networking. Default values work for most
+# learning scenarios. Ensure ranges don't overlap with existing networks.
+
+# Private IP range for GKE master nodes (required for private clusters)
+# Must be /28 range in RFC 1918 private space
+# Must not overlap with VPC subnets or other IP ranges
+master_ipv4_cidr_block = "172.16.0.32/28"
+
+# IP range for Kubernetes pods within the cluster
+# /16 provides 65,536 IP addresses for pod networking
+# Must not overlap with VPC, service ranges, or master range
+pod_cidr_range = "10.1.0.0/16"
+
+# IP range for Kubernetes services (ClusterIP services)
+# /16 provides ample capacity for service networking
+# Must not overlap with VPC, pod ranges, or master range
+service_cidr_range = "10.2.0.0/16"
+
+# =============================================================================
+# SECURITY CONFIGURATION
+# =============================================================================
+# These settings control cluster security features. Balance security with
+# learning simplicity based on your environment requirements.
+
+# Enable private nodes (no public IP addresses)
+# true:  Enhanced security, requires NAT gateway (~$45/month additional cost)
+# false: Simpler for development, nodes have public IPs (less secure)
+# Recommendation: false for learning, true for production
+enable_private_nodes = false
+
+# Enable Kubernetes network policies for pod-to-pod security
+# true:  Micro-segmentation and fine-grained network controls
+# false: Simpler networking, all pods can communicate freely
+# Recommendation: false for learning, true for production security
+enable_network_policy = false
+
+# Enable Workload Identity for secure pod authentication to GCP services
+# true:  Modern security best practice, no service account keys needed
+# false: Traditional approach, may require service account keys
+# Recommendation: true for demonstrating modern security patterns
+enable_workload_identity = true
+
+# =============================================================================
+# OBSERVABILITY CONFIGURATION
+# =============================================================================
+# These features provide monitoring and logging for operational visibility.
+# Highly recommended for learning about application observability.
+
+# Enable Google Cloud Monitoring integration
+# Provides metrics, dashboards, and alerting capabilities
+# Cost: Minimal for small clusters (~$1-5/month)
+# Educational value: High for understanding application monitoring
+enable_monitoring = true
+
+# Enable Google Cloud Logging integration
+# Centralizes logs from cluster components and applications
+# Cost: Based on log volume (~$0.50/GB ingested)
+# Educational value: Essential for troubleshooting and debugging
+enable_logging = true
+
+# =============================================================================
+# CONFIGURATION SCENARIOS
+# =============================================================================
+# Below are example configurations for different use cases. Uncomment and
+# modify the scenario that best matches your needs.
+
+# -----------------------------------------------------------------------------
+# LEARNING/DEVELOPMENT SCENARIO (Cost: ~$50-100/month)
+# Optimized for individual learning with minimal costs
+# -----------------------------------------------------------------------------
+# cluster_node_count     = 1
+# cluster_min_nodes      = 1
+# cluster_max_nodes      = 3
+# node_machine_type      = "e2-micro"
+# node_disk_size_gb      = 30
+# enable_private_nodes   = false
+# enable_network_policy  = false
+
+# -----------------------------------------------------------------------------
+# TEAM DEVELOPMENT SCENARIO (Cost: ~$150-250/month)
+# Balanced configuration for team development and testing
+# -----------------------------------------------------------------------------
+# cluster_node_count     = 2
+# cluster_min_nodes      = 2
+# cluster_max_nodes      = 5
+# node_machine_type      = "e2-medium"
+# node_disk_size_gb      = 50
+# enable_private_nodes   = true
+# enable_network_policy  = false
+
+# -----------------------------------------------------------------------------
+# PRODUCTION READY SCENARIO (Cost: ~$300-500/month)
+# Full security features and monitoring for production workloads
+# -----------------------------------------------------------------------------
+# cluster_node_count     = 3
+# cluster_min_nodes      = 3
+# cluster_max_nodes      = 10
+# node_machine_type      = "e2-standard-2"
+# node_disk_size_gb      = 100
+# enable_private_nodes   = true
+# enable_network_policy  = true
+# enable_workload_identity = true
+
+# =============================================================================
+# COST OPTIMIZATION TIPS
+# =============================================================================
+#
+# 1. Machine Type Selection:
+#    - e2-micro saves ~$18/month per node vs e2-medium
+#    - Use e2-micro for learning, e2-medium for development
+#    - Upgrade to larger types only when needed for performance
+#
+# 2. Node Count Management:
+#    - Set cluster_min_nodes = 1 for development cost savings
+#    - Use conservative cluster_max_nodes to prevent unexpected scaling
+#    - Monitor actual usage to optimize node count over time
+#
+# 3. Storage Optimization:
+#    - Start with 30GB disk size, increase only if needed
+#    - Monitor node disk usage with: kubectl top nodes
+#    - Clean up unused container images periodically
+#
+# 4. Regional Selection:
+#    - us-central1 typically offers competitive pricing
+#    - Choose regions closer to users for production
+#    - Avoid premium regions unless required for compliance
+#
+# 5. Feature Cost Management:
+#    - enable_private_nodes = false saves ~$45/month NAT gateway costs
+#    - Monitor logging costs if enable_logging = true
+#    - Use Google Cloud billing alerts to track spending
+
+# =============================================================================
+# SECURITY BEST PRACTICES
+# =============================================================================
+#
+# 1. Credential Security:
+#    - Never commit terraform.tfvars to version control
+#    - Use gcloud auth application-default login for development
+#    - Rotate service account keys regularly if using them
+#    - Enable audit logging on your GCP project
+#
+# 2. Network Security:
+#    - Enable private nodes for production environments
+#    - Use network policies for micro-segmentation when needed
+#    - Implement IP whitelisting for cluster access if required
+#
+# 3. Workload Security:
+#    - Enable Workload Identity for pod authentication
+#    - Use least-privilege IAM roles for service accounts
+#    - Regularly update Kubernetes versions for security patches
+#
+# 4. Monitoring and Compliance:
+#    - Enable audit logging for compliance requirements
+#    - Set up monitoring alerts for security events
+#    - Implement backup strategies for critical workloads
+#
+# 5. Access Control:
+#    - Use Google Cloud IAM for cluster access control
+#    - Implement RBAC within Kubernetes for fine-grained permissions
+#    - Regular review and rotation of access credentials
+
+# =============================================================================
+# TROUBLESHOOTING GUIDE
+# =============================================================================
+#
+# Common Issues and Solutions:
+#
+# 1. "Project ID validation errors"
+#    Solution: Ensure project ID is 6-30 chars, lowercase, letters/numbers/hyphens only
+#    Verification: Check project exists in GCP Console and billing is enabled
+#
+# 2. "Authentication failures"
+#    Solution: Run 'gcloud auth application-default login'
+#    Verification: Test with 'gcloud projects describe PROJECT_ID'
+#
+# 3. "Resource quota exceeded"
+#    Solution: Check GCP quotas in Console or reduce resource requests
+#    Verification: Verify regional quotas for Compute Engine and GKE
+#
+# 4. "Network CIDR overlaps"
+#    Solution: Ensure pod, service, and master CIDR ranges don't overlap
+#    Verification: Use different 10.x.0.0/16 ranges for pod and service
+#
+# 5. "High costs"
+#    Solution: Review machine types, node counts, and enabled services
+#    Verification: Use GCP billing console to identify cost drivers
+
+# =============================================================================
+# NEXT STEPS AFTER DEPLOYMENT
+# =============================================================================
+#
+# 1. Verify Cluster Access:
+#    gcloud container clusters get-credentials CLUSTER_NAME --region=REGION
+#    kubectl cluster-info
+#    kubectl get nodes
+#
+# 2. Deploy Sample Application:
+#    kubectl create deployment hello-world --image=gcr.io/google-samples/hello-app:1.0
+#    kubectl expose deployment hello-world --type=LoadBalancer --port=8080
+#    kubectl get services
+#
+# 3. Monitor Resources:
+#    kubectl top nodes
+#    kubectl top pods
+#    Visit Google Cloud Console for monitoring dashboards
+#
+# 4. Cost Management:
+#    Set up billing alerts in Google Cloud Console
+#    Monitor resource usage and adjust cluster size as needed
+#    Review monthly costs and optimize configuration
+#
+# 5. Security Hardening:
+#    Review IAM permissions and apply least privilege
+#    Enable additional security features as requirements evolve
+#    Implement backup and disaster recovery procedures
+
+# =============================================================================
+# EDUCATIONAL LEARNING PATH
+# =============================================================================
+#
+# Phase 1: Initial Learning (1-2 weeks)
+# - Focus: Basic cluster creation and kubectl access
+# - Config: Use learning_development scenario with minimal resources
+# - Goals: Understand GKE basics, kubectl commands, basic Kubernetes concepts
+# - Cost: ~$50-75/month
+#
+# Phase 2: Development Skills (2-4 weeks)  
+# - Focus: Application deployment and service configuration
+# - Config: Use team_development scenario with moderate resources
+# - Goals: Deploy applications, configure services, understand networking
+# - Cost: ~$100-200/month
+#
+# Phase 3: Production Readiness (4+ weeks)
+# - Focus: Security, monitoring, and operational practices  
+# - Config: Use production_ready scenario with full security features
+# - Goals: Implement security best practices, monitoring, operations
+# - Cost: ~$250-400/month
+#
+# Remember: Start simple, learn fundamentals, then add complexity gradually!

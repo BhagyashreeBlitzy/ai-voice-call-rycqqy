@@ -1,0 +1,493 @@
+# ==============================================================================
+# Node.js Tutorial Application - Development Docker Compose Configuration
+# ==============================================================================
+# Development-optimized Docker Compose orchestration configuration for the Node.js
+# tutorial application that provides a complete development environment with hot 
+# reloading, debugging capabilities, and development tooling integration. Extends 
+# the base Docker Compose configuration with development-specific optimizations 
+# including volume mounting for live code synchronization, development container 
+# stages, enhanced logging, debugging port exposure, and comprehensive development 
+# workflow support while maintaining educational clarity for learning containerized 
+# development patterns with Node.js and Express.js applications.
+#
+# Development Features:
+# - Hot reloading with nodemon and live code synchronization through volume mounting
+# - Node.js debugger integration with port 9229 exposure for IDE and debugging tools
+# - Development environment variables with enhanced logging and debugging features
+# - Simplified service configuration optimized for local development workflow
+# - Development-specific networking with relaxed security for ease of development
+# - Enhanced error reporting and development-friendly timeout configurations
+# - Source code volume mounting with node_modules exclusion for optimal performance
+# - Development tooling integration with testing framework and code quality tools
+#
+# Educational Value:
+# - Demonstrates containerized development environment setup and configuration
+# - Illustrates hot reloading implementation with volume mounting strategies
+# - Shows debugging integration and remote debugging setup in containers
+# - Teaches development service orchestration with Docker Compose patterns
+# - Provides hands-on experience with development workflow optimization
+# - Demonstrates environment-specific configuration management principles
+#
+# Compatible with: Docker Compose v3.8, Node.js 22.x LTS, Express.js 5.1.0
+# ==============================================================================
+
+version: '3.8'
+
+# ==============================================================================
+# DEVELOPMENT SERVICES CONFIGURATION
+# ==============================================================================
+
+services:
+
+  # ============================================================================
+  # Node.js Tutorial Application Development Service
+  # ============================================================================
+  # Primary development service with Express.js 5.1.0, hot reloading via nodemon,
+  # debugging capabilities, and comprehensive development tooling integration
+  nodejs-tutorial-dev:
+    # Build configuration targeting development stage with build arguments
+    build:
+      context: ../../src/backend
+      dockerfile: Dockerfile
+      target: build  # Use build stage instead of production for dev dependencies
+      args:
+        NODE_VERSION: 22
+        BUILD_DATE: "${BUILD_DATE:-$(date -u +'%Y-%m-%dT%H:%M:%SZ')}"
+        VERSION: "${VERSION:-dev}"
+        ENVIRONMENT: development
+    
+    # Development container image with version tagging
+    image: nodejs-tutorial:dev
+    container_name: ${COMPOSE_PROJECT_NAME:-nodejs-tutorial-dev}_app
+    
+    # Restart policy for development stability with manual control
+    restart: unless-stopped
+    
+    # Development command using npm script with nodemon for hot reloading
+    command: npm run dev
+    
+    # Comprehensive development environment variables with debugging and logging
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      HOST: 0.0.0.0
+      LOG_LEVEL: debug
+      DEBUG: 'true'
+      VERBOSE: 'true'
+      SERVICE_NAME: nodejs-tutorial-dev
+      SERVICE_VERSION: '${VERSION:-dev}'
+      REDIS_URL: redis://redis-dev:6379
+      TRUST_PROXY: 'false'
+      ENABLE_METRICS: 'true'
+      HEALTH_CHECK_TIMEOUT: 10000
+      HOT_RELOAD: 'true'
+      NODEMON_ENABLED: 'true'
+    
+    # Load environment configuration from example template
+    env_file:
+      - ../../src/backend/.env.example
+    
+    # Port mapping for application access and Node.js debugger
+    ports:
+      - "${HTTP_PORT:-3000}:3000"       # HTTP server port for direct access
+      - "${DEBUG_PORT:-9229}:9229"      # Node.js debugger port for IDE integration
+    
+    # Volume configuration for live code synchronization and development data
+    volumes:
+      # Source code mounted as cached volume for optimal performance on macOS/Windows
+      - ../../src/backend:/usr/src/app:cached
+      # Anonymous volume to prevent node_modules from being overwritten by host
+      - /usr/src/app/node_modules
+      # Named volumes for development data persistence
+      - dev-logs:/usr/src/app/logs:rw
+      - dev-tmp:/usr/src/app/tmp:rw
+    
+    # Development-optimized health check with extended timeouts and startup period
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - |
+          const http=require('http');
+          const options={
+            host:'0.0.0.0',
+            port:3000,
+            path:'/health',
+            timeout:5000
+          };
+          const req=http.request(options,(r)=>{
+            process.exit(r.statusCode===200?0:1)
+          });
+          req.on('error',()=>process.exit(1));
+          req.setTimeout(5000,()=>{
+            req.destroy();
+            process.exit(1)
+          });
+          req.end();
+      interval: 30s
+      timeout: 15s
+      retries: 5
+      start_period: 60s  # Extended startup period for development builds
+    
+    # Development logging configuration with uncompressed logs for easier debugging
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '3'
+        compress: 'false'  # Uncompressed for development debugging
+    
+    # Network connectivity for development environment isolation
+    networks:
+      - nodejs-tutorial-dev-frontend
+      - nodejs-tutorial-dev-backend
+    
+    # Container labels for development environment identification and management
+    labels:
+      app: nodejs-tutorial
+      service: application
+      version: '${VERSION:-dev}'
+      environment: development
+      maintainer: nodejs-tutorial-dev-team
+      hot-reload: enabled
+      debugging: enabled
+    
+    # Service dependency on Redis development instance
+    depends_on:
+      redis-dev:
+        condition: service_started
+
+  # ============================================================================
+  # Development Nginx Reverse Proxy Service
+  # ============================================================================
+  # Simplified Nginx reverse proxy for development with relaxed configuration
+  # and development-friendly settings for local testing and debugging
+  nginx-dev:
+    # Official Nginx Alpine image for lightweight development proxy
+    image: nginx:1.24-alpine  # nginx:1.24-alpine
+    container_name: ${COMPOSE_PROJECT_NAME:-nodejs-tutorial-dev}_nginx
+    
+    # Restart policy for development environment
+    restart: unless-stopped
+    
+    # Development port mapping for local access
+    ports:
+      - "${PROXY_PORT:-80}:80"
+    
+    # Development environment configuration for Nginx
+    environment:
+      NGINX_ENVSUBST_TEMPLATE_SUFFIX: .template
+      UPSTREAM_SERVERS: nodejs-tutorial-dev:3000
+      SERVER_NAME: '${SERVER_NAME:-localhost}'
+    
+    # Volume configuration for development Nginx logs
+    volumes:
+      - nginx-dev-logs:/var/log/nginx:rw
+      # Optional: Mount development nginx configuration
+      - ../../config/nginx/dev.conf:/etc/nginx/conf.d/default.conf:ro
+    
+    # Simplified health check for development environment
+    healthcheck:
+      test:
+        - CMD
+        - wget
+        - --no-verbose
+        - --tries=1
+        - --spider
+        - http://localhost:80/health
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    
+    # Minimal logging for development proxy
+    logging:
+      driver: json-file
+      options:
+        max-size: 5m
+        max-file: '2'
+    
+    # Network connectivity for development environment
+    networks:
+      - nodejs-tutorial-dev-frontend
+      - nodejs-tutorial-dev-backend
+    
+    # Development environment labels
+    labels:
+      app: nodejs-tutorial
+      service: reverse-proxy
+      version: '${VERSION:-dev}'
+      environment: development
+    
+    # Dependency on application service for development workflow
+    depends_on:
+      nodejs-tutorial-dev:
+        condition: service_started
+
+  # ============================================================================
+  # Development Redis Cache Service
+  # ============================================================================
+  # Redis cache optimized for development with simplified configuration
+  # and optional data persistence for development workflow
+  redis-dev:
+    # Official Redis Alpine image for minimal development footprint
+    image: redis:7-alpine  # redis:7-alpine
+    container_name: ${COMPOSE_PROJECT_NAME:-nodejs-tutorial-dev}_redis
+    
+    # Restart policy for development data persistence
+    restart: unless-stopped
+    
+    # Development Redis configuration with relaxed persistence and memory limits
+    command:
+      - redis-server
+      - --save
+      - ''  # Disable RDB snapshots for development
+      - --loglevel
+      - notice
+      - --maxmemory
+      - '${REDIS_MAXMEMORY:-64mb}'
+      - --maxmemory-policy
+      - allkeys-lru
+    
+    # Development environment configuration for Redis
+    environment:
+      REDIS_MAXMEMORY: '${REDIS_MAXMEMORY:-64mb}'
+    
+    # Development port mapping for direct Redis access during debugging
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    
+    # Volume for optional development data persistence
+    volumes:
+      - redis-dev-data:/data:rw
+    
+    # Redis health check for development monitoring
+    healthcheck:
+      test:
+        - CMD
+        - redis-cli
+        - ping
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    
+    # Minimal logging configuration for development
+    logging:
+      driver: json-file
+      options:
+        max-size: 5m
+        max-file: '2'
+    
+    # Backend network connectivity for secure development architecture
+    networks:
+      - nodejs-tutorial-dev-backend
+    
+    # Development environment labels for container management
+    labels:
+      app: nodejs-tutorial
+      service: cache
+      version: '${VERSION:-dev}'
+      environment: development
+
+# ==============================================================================
+# DEVELOPMENT NETWORKS CONFIGURATION
+# ==============================================================================
+# Custom bridge networks optimized for development with relaxed security
+# and enhanced connectivity for debugging and development workflow
+
+networks:
+  
+  # Frontend network for development client-facing services
+  nodejs-tutorial-dev-frontend:
+    name: ${COMPOSE_PROJECT_NAME:-nodejs-tutorial-dev}_frontend
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.28.1.0/24
+          gateway: 172.28.1.1
+    labels:
+      app: nodejs-tutorial
+      tier: frontend
+      environment: development
+  
+  # Backend network for development internal service communication
+  nodejs-tutorial-dev-backend:
+    name: ${COMPOSE_PROJECT_NAME:-nodejs-tutorial-dev}_backend
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.28.2.0/24
+          gateway: 172.28.2.1
+    labels:
+      app: nodejs-tutorial
+      tier: backend
+      environment: development
+
+# ==============================================================================
+# DEVELOPMENT VOLUMES CONFIGURATION
+# ==============================================================================
+# Named volumes for development data persistence and debugging support
+# with proper labeling for development environment management
+
+volumes:
+  
+  # Development application logs volume for debugging and monitoring
+  dev-logs:
+    name: ${COMPOSE_PROJECT_NAME:-nodejs-tutorial-dev}_app_logs
+    driver: local
+    labels:
+      app: nodejs-tutorial
+      service: application
+      purpose: development-logs
+      environment: development
+  
+  # Development temporary files volume for application runtime data
+  dev-tmp:
+    name: ${COMPOSE_PROJECT_NAME:-nodejs-tutorial-dev}_app_tmp
+    driver: local
+    labels:
+      app: nodejs-tutorial
+      service: application
+      purpose: temporary-files
+      environment: development
+  
+  # Development Nginx logs volume for proxy debugging
+  nginx-dev-logs:
+    name: ${COMPOSE_PROJECT_NAME:-nodejs-tutorial-dev}_nginx_logs
+    driver: local
+    labels:
+      app: nodejs-tutorial
+      service: reverse-proxy
+      purpose: nginx-logs
+      environment: development
+  
+  # Development Redis data volume for optional cache persistence
+  redis-dev-data:
+    name: ${COMPOSE_PROJECT_NAME:-nodejs-tutorial-dev}_redis_data
+    driver: local
+    labels:
+      app: nodejs-tutorial
+      service: cache
+      purpose: redis-development-data
+      environment: development
+
+# ==============================================================================
+# DEVELOPMENT ENVIRONMENT VARIABLES
+# ==============================================================================
+# Environment variables for development configuration and workflow customization
+#
+# COMPOSE_PROJECT_NAME: Project name for development resource isolation
+#   Default: nodejs-tutorial-dev
+#   Example: my-tutorial-dev
+#
+# VERSION: Development version tag for container image identification
+#   Default: dev
+#   Example: feature-branch-name
+#
+# HTTP_PORT: Host port mapping for direct Node.js application access
+#   Default: 3000
+#   Example: 3001
+#
+# PROXY_PORT: Host port mapping for Nginx reverse proxy access
+#   Default: 80
+#   Example: 8080
+#
+# DEBUG_PORT: Host port mapping for Node.js debugger access and IDE integration
+#   Default: 9229
+#   Example: 9230
+#
+# REDIS_PORT: Host port mapping for Redis direct access during development
+#   Default: 6379
+#   Example: 6380
+#
+# REDIS_MAXMEMORY: Redis maximum memory allocation for development workload
+#   Default: 64mb
+#   Example: 128mb
+#
+# SERVER_NAME: Nginx server name for development proxy configuration
+#   Default: localhost
+#   Example: dev.tutorial.local
+
+# ==============================================================================
+# DEVELOPMENT WORKFLOW COMMANDS
+# ==============================================================================
+#
+# START DEVELOPMENT ENVIRONMENT:
+# export COMPOSE_PROJECT_NAME=nodejs-tutorial-dev
+# export VERSION=dev
+# docker-compose -f docker-compose.dev.yml up -d
+# docker-compose -f docker-compose.dev.yml ps --filter health=healthy
+# curl http://localhost:3000/hello
+#
+# VIEW DEVELOPMENT LOGS:
+# docker-compose -f docker-compose.dev.yml logs -f nodejs-tutorial-dev
+# docker-compose -f docker-compose.dev.yml logs --tail=100 --timestamps
+#
+# DEVELOPMENT TESTING:
+# docker-compose -f docker-compose.dev.yml exec nodejs-tutorial-dev npm test
+# docker-compose -f docker-compose.dev.yml exec nodejs-tutorial-dev npm run test:coverage
+# docker-compose -f docker-compose.dev.yml exec nodejs-tutorial-dev npm run lint
+#
+# DEBUGGING WORKFLOW:
+# # Connect debugger to localhost:9229
+# # Attach VS Code debugger or Chrome DevTools
+# # Use Remote-Containers extension for integrated development
+#
+# DEVELOPMENT CLEANUP:
+# docker-compose -f docker-compose.dev.yml down
+# docker-compose -f docker-compose.dev.yml down -v  # Remove volumes
+# docker system prune -f  # Clean unused resources
+
+# ==============================================================================
+# EDUCATIONAL DEVELOPMENT CONCEPTS
+# ==============================================================================
+#
+# HOT RELOADING IMPLEMENTATION:
+# - Source code volume mounting with :cached optimization for performance
+# - Nodemon integration for automatic server restart on file changes
+# - Anonymous node_modules volume to prevent host overwrite conflicts
+# - Development command override using npm run dev script
+#
+# DEBUGGING INTEGRATION:
+# - Node.js debugger port 9229 exposure for IDE and debugging tool access
+# - Development build stage inclusion of debugging dependencies
+# - Enhanced logging and error reporting for development troubleshooting
+# - Support for VS Code Remote-Containers and debugger attachment
+#
+# DEVELOPMENT WORKFLOW OPTIMIZATION:
+# - Simplified service configuration with relaxed security for development
+# - Extended health check timeouts and startup periods for development builds
+# - Development-specific environment variables and feature flags
+# - Direct service port mapping for debugging and testing access
+#
+# CONTAINER DEVELOPMENT PATTERNS:
+# - Multi-stage Dockerfile utilization with development target selection
+# - Volume mounting strategies for live code synchronization
+# - Development environment isolation with custom networks and naming
+# - Educational demonstration of containerized development workflows
+
+# ==============================================================================
+# PRODUCTION COMPARISON AND LEARNING PROGRESSION
+# ==============================================================================
+#
+# DEVELOPMENT VS PRODUCTION DIFFERENCES:
+# - Build target: 'build' (includes dev dependencies) vs 'production' (minimal)
+# - Command: 'npm run dev' (nodemon) vs 'node bin/www' (direct execution)
+# - Volumes: Source code mounted vs application files copied during build
+# - Ports: Debug port exposed vs production ports only
+# - Environment: Debug logging vs production logging levels
+# - Security: Relaxed settings vs production hardening
+#
+# LEARNING PROGRESSION:
+# 1. Understanding containerized development environment setup
+# 2. Implementing hot reloading and live code synchronization
+# 3. Configuring debugging capabilities and IDE integration
+# 4. Managing development vs production configuration differences
+# 5. Preparing for production deployment by understanding trade-offs
+# 6. Scaling development practices to team and CI/CD workflows
+
+# ==============================================================================

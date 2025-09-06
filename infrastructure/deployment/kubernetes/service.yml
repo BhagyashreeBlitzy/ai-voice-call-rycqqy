@@ -1,0 +1,165 @@
+# Kubernetes Service YAML Configuration for Node.js Tutorial Application
+# 
+# This service resource creates a stable network endpoint for the Node.js tutorial application
+# running Express.js 5.1.0 HTTP server. It provides load balancing, service discovery, and
+# network abstraction for internal cluster communication while demonstrating production-ready
+# service patterns with comprehensive labeling and educational metadata.
+#
+# Features:
+# - ClusterIP service type for secure internal cluster communication
+# - Load balancing across multiple deployment pod replicas (3 replicas)
+# - Service discovery integration with Kubernetes DNS and environment variables
+# - Health check integration with readiness probe endpoint management
+# - Comprehensive labeling strategy consistent with deployment resources
+# - Educational annotations for learning Kubernetes networking concepts
+# - Production-ready configuration with monitoring and security considerations
+#
+# Compatible with:
+# - Kubernetes v1 API for Service resources
+# - Node.js 22.11.0 LTS with Active LTS support
+# - Express.js 5.1.0 with enhanced async support and automatic promise error handling
+# - Hello endpoint (/hello) providing "Hello world" response
+# - Health check endpoints (/health, /livez, /readyz) for monitoring integration
+#
+# Network Architecture:
+# - Internal cluster access only (ClusterIP type prevents external access)
+# - DNS name: nodejs-tutorial-service.nodejs-tutorial.svc.cluster.local
+# - Port 80 (service) mapped to port 3000 (container) for HTTP traffic
+# - Automatic endpoint management based on pod readiness probes
+# - Load balancing using round-robin distribution across healthy pods
+
+apiVersion: v1
+kind: Service
+metadata:
+  # Service resource identification and namespace assignment
+  name: nodejs-tutorial-service
+  namespace: nodejs-tutorial
+  
+  # Comprehensive labeling strategy for service identification and management
+  # Labels follow Kubernetes recommended labels specification for consistency
+  labels:
+    # Standard Kubernetes application identification labels
+    app.kubernetes.io/name: nodejs-tutorial
+    app.kubernetes.io/instance: hello-world
+    app.kubernetes.io/version: "1.0.0"
+    app.kubernetes.io/component: service
+    app.kubernetes.io/part-of: nodejs-tutorial-app
+    app.kubernetes.io/managed-by: kubectl
+    app.kubernetes.io/created-by: infrastructure-team
+    
+    # Environment and platform classification labels
+    environment: production
+    framework: express
+    language: nodejs
+    tier: backend
+    
+    # Educational metadata labels for tutorial context and learning objectives
+    tutorial.example.com/purpose: educational
+    tutorial.example.com/level: beginner
+    tutorial.example.com/framework: express
+    tutorial.example.com/version: "5.1.0"
+    tutorial.example.com/node-version: "22"
+    
+    # Service-specific classification and configuration labels
+    service.example.com/type: ClusterIP
+    service.example.com/load-balancer: kubernetes
+  
+  # Comprehensive annotations for service documentation and operational metadata
+  annotations:
+    # Service description and documentation annotations
+    description: "Kubernetes service for Node.js tutorial application exposing Express.js 5.1.0 HTTP server with load balancing"
+    tutorial.example.com/documentation: "https://github.com/nodejs-tutorial/hello-world/blob/main/README.md"
+    tutorial.example.com/endpoints: "/hello,/health,/livez,/readyz"
+    tutorial.example.com/concepts: "kubernetes-service,load-balancing,service-discovery"
+    tutorial.example.com/learning-objectives: "kubernetes-networking,service-endpoints,pod-selection"
+    
+    # Kubernetes operational annotations for resource management
+    kubectl.kubernetes.io/last-applied-configuration: ""
+    
+    # Service networking and load balancing annotations
+    service.kubernetes.io/load-balancer-source-ranges: ""
+    service.beta.kubernetes.io/aws-load-balancer-type: ""
+    
+    # Monitoring and observability integration annotations
+    monitoring.example.com/scrape: "true"
+    monitoring.example.com/port: "80"
+    monitoring.example.com/path: "/health"
+    
+    # Security and network policy annotations
+    security.example.com/network-policy: "enabled"
+    
+    # Performance and session management annotations
+    performance.example.com/session-affinity: "None"
+    performance.example.com/timeout: "30s"
+
+# Service specification defining network endpoint configuration and pod selection
+spec:
+  # Service type configuration for internal cluster communication only
+  # ClusterIP provides stable internal IP address for service discovery
+  type: ClusterIP
+  
+  # Pod selector labels for identifying target deployment pods
+  # Must match exactly with deployment pod template labels for proper routing
+  selector:
+    app.kubernetes.io/name: nodejs-tutorial
+    app.kubernetes.io/instance: hello-world
+    app.kubernetes.io/component: backend
+  
+  # Port mapping configuration for HTTP traffic routing
+  ports:
+    # HTTP port configuration for web traffic and API endpoints
+    - name: http
+      protocol: TCP
+      port: 80          # Service port exposed within cluster
+      targetPort: 3000  # Container port where Express.js HTTP server listens
+  
+  # Session affinity configuration for stateless load balancing
+  # None ensures optimal load distribution across all healthy pods
+  sessionAffinity: None
+  
+  # IP family configuration for network stack compatibility
+  # SingleStack IPv4 configuration for standard cluster networking
+  ipFamilies:
+    - IPv4
+  ipFamilyPolicy: SingleStack
+
+# Service will automatically create and manage endpoints based on:
+# 1. Pod selector label matching (app.kubernetes.io/name, instance, component)
+# 2. Pod readiness probe status (only ready pods included in endpoints)
+# 3. Deployment pod template configuration (3 replicas with rolling update)
+# 4. Health check integration (/readyz endpoint determines pod readiness)
+#
+# Expected service behavior:
+# - DNS resolution: nodejs-tutorial-service.nodejs-tutorial.svc.cluster.local
+# - Load balancing: Round-robin distribution across 3 healthy pod replicas
+# - Health integration: Automatic endpoint updates based on pod health status
+# - Port access: Service port 80 forwards to container port 3000
+# - Internal access: Only accessible from within Kubernetes cluster
+# - External access: Requires Ingress controller for external traffic routing
+#
+# Service endpoints will include pod IPs that:
+# - Match all three selector labels exactly
+# - Pass readiness probes on /readyz endpoint
+# - Are in Running phase with containers ready
+# - Have network connectivity established
+#
+# Monitoring integration provides:
+# - Prometheus metrics scraping on port 80 at /health endpoint
+# - Service discovery through monitoring.example.com/scrape annotation
+# - Health status visibility through /health, /livez, /readyz endpoints
+# - Performance monitoring through service-level metrics collection
+#
+# Security considerations:
+# - Internal cluster access only (no external exposure)
+# - Network policy integration through security annotations
+# - Pod selection security through label-based filtering
+# - Traffic encryption delegated to ingress controller for external access
+#
+# Educational value demonstrates:
+# - Kubernetes Service resource structure and configuration patterns
+# - Service discovery through DNS and environment variables
+# - Load balancing and endpoint management for high availability
+# - Port mapping between service and container networking
+# - Health check integration with readiness probe endpoints
+# - Label-based pod selection and service coordination
+# - Production-ready service configuration with monitoring integration

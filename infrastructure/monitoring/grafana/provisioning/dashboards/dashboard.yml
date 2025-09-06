@@ -1,0 +1,196 @@
+# =============================================================================
+# Grafana Dashboard Provisioning Configuration for Node.js Tutorial Application
+# =============================================================================
+# Automated dashboard provisioning configuration that implements Grafana provisioning API standards
+# to ensure dashboard availability on container startup. This configuration manages dashboard updates,
+# versioning, and organization within appropriate folders while integrating with Docker Compose
+# monitoring stack for seamless deployment without manual Grafana UI configuration.
+# 
+# Educational Features:
+# - Production-ready dashboard provisioning patterns demonstrating automated monitoring infrastructure
+# - Infrastructure as Code principles for monitoring dashboard deployment and version control
+# - Container orchestration integration with persistent configuration through volume mounting
+# - File-based provisioning workflows with automatic discovery and update mechanisms
+# - Dashboard organization and folder management for scalable monitoring infrastructure
+# - Operational procedures for dashboard lifecycle management with comprehensive error handling
+# 
+# Integration Points:
+# - Docker Compose volume mounting: ./infrastructure/monitoring/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
+# - Dashboard JSON files: ./infrastructure/monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+# - Prometheus datasource: References prometheus.yml configuration for metric queries
+# - Application metrics: Integrates with src/backend/src/monitoring/metrics.js exported metrics
+# 
+# Grafana Provisioning API Version: 1.0
+# Compatible with: Grafana 10.4.0, Docker Compose 2.x, Prometheus 2.x
+# =============================================================================
+
+# Grafana provisioning API version for dashboard configuration
+# Version 1 provides stable dashboard provisioning with folder management and update policies
+apiVersion: 1
+
+# Dashboard providers configuration array defining multiple provisioning sources
+# Each provider defines a separate dashboard provisioning source with independent configuration
+providers:
+  # Primary dashboard provider for Node.js tutorial application monitoring dashboards
+  - name: nodejs-tutorial-dashboards
+    # Provider type specifying file-based dashboard provisioning from filesystem
+    # 'file' type enables automatic dashboard discovery from specified directory path
+    type: file
+    
+    # Dashboard deletion policy configuration for provisioning system management
+    # false allows dashboard deletion through provisioning system for flexible management
+    disableDeletion: false
+    
+    # File system polling interval for dashboard update detection in seconds
+    # 10-second interval provides responsive updates while minimizing system overhead
+    updateIntervalSeconds: 10
+    
+    # UI modification policy allowing dashboard changes through Grafana interface
+    # true enables dashboard editing through web UI with optional write-back to files
+    allowUiUpdates: true
+    
+    # Provider options configuration for file-based dashboard provisioning behavior
+    options:
+      # Primary dashboard file path within container for JSON dashboard discovery
+      # /etc/grafana/provisioning/dashboards maps to Docker volume mount for configuration persistence
+      path: /etc/grafana/provisioning/dashboards
+      
+      # Disable automatic folder creation from file system structure
+      # false ensures explicit folder configuration takes precedence over directory structure
+      foldersFromFilesStructure: false
+      
+      # Dashboard organization folder name for logical grouping and navigation
+      # "Node.js Tutorial" provides clear separation from other monitoring content
+      folder: "Node.js Tutorial"
+      
+      # Unique folder identifier for programmatic folder management and API integration
+      # nodejs-tutorial-folder enables consistent folder reference across configuration
+      folderUid: "nodejs-tutorial-folder"
+
+# =============================================================================
+# DASHBOARD PROVISIONING WORKFLOW DOCUMENTATION
+# =============================================================================
+#
+# Initialization Process:
+# 1. Grafana container starts and loads this dashboard.yml configuration file
+# 2. Provisioning system validates YAML syntax and API version compatibility
+# 3. Dashboard provider "nodejs-tutorial-dashboards" is registered with type "file"
+# 4. Provider validates path accessibility and file system permissions
+# 5. Folder "Node.js Tutorial" is created or verified with UID "nodejs-tutorial-folder"
+# 6. File system scan discovers dashboard JSON files in /etc/grafana/provisioning/dashboards
+# 7. Dashboard JSON files are parsed, validated, and imported into Grafana database
+# 8. Dashboards are assigned to "Node.js Tutorial" folder for organization
+#
+# Update Monitoring Process:
+# 1. File system polling monitors dashboard directory every 10 seconds
+# 2. File modification time comparison detects changes to dashboard JSON files
+# 3. Changed dashboards are automatically re-imported with updated configuration
+# 4. Dashboard versioning is handled automatically with timestamp-based updates
+# 5. UI changes can be persisted back to JSON files if allowUiUpdates enabled
+#
+# Error Handling Behavior:
+# 1. Invalid YAML configuration logs error and prevents provider initialization
+# 2. Missing dashboard files log warning but continue with available dashboards
+# 3. JSON parsing errors log specific file errors and skip problematic dashboards
+# 4. Folder creation failures log error and place dashboards in General folder
+# 5. Permission issues log error and attempt read-only access for dashboard loading
+#
+# Docker Integration:
+# 1. Container volume mounts:
+#    - Configuration: ./infrastructure/monitoring/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
+#    - Dashboards: ./infrastructure/monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+# 2. Environment variables:
+#    - GF_PROVISIONING_DASHBOARDS_PATH=/etc/grafana/provisioning/dashboards
+#    - GF_PROVISIONING_ALLOW_UI_UPDATES=true
+# 3. Service dependencies:
+#    - Requires Prometheus service for datasource connectivity
+#    - Integrates with application metrics from Node.js tutorial service
+#
+# =============================================================================
+# OPERATIONAL PROCEDURES
+# =============================================================================
+#
+# Dashboard Deployment:
+# 1. Place dashboard JSON files in infrastructure/monitoring/grafana/dashboards/
+# 2. Update dashboard.yml configuration if folder organization changes
+# 3. Deploy monitoring stack: docker-compose up -d grafana prometheus
+# 4. Verify dashboard import: docker-compose logs grafana | grep -i provisioning
+# 5. Access Grafana UI and navigate to "Node.js Tutorial" folder
+#
+# Dashboard Updates:
+# 1. Modify dashboard JSON configuration files
+# 2. Validate JSON syntax: cat dashboard.json | python -m json.tool
+# 3. Wait 10 seconds for automatic provisioning update detection
+# 4. Refresh Grafana UI to view updated dashboard configuration
+# 5. Test dashboard functionality with live metrics data
+#
+# Troubleshooting Commands:
+# - Verify configuration: docker-compose exec grafana cat /etc/grafana/provisioning/dashboards/dashboard.yml
+# - Check file permissions: docker-compose exec grafana ls -la /etc/grafana/provisioning/dashboards/
+# - Monitor provisioning: docker-compose logs grafana | grep -i dashboard
+# - Test API endpoint: curl -u admin:admin http://localhost:3000/api/provisioning/dashboards
+# - Validate JSON files: docker-compose exec grafana find /var/lib/grafana/dashboards -name "*.json" -exec json_pp {} \;
+#
+# =============================================================================
+# SECURITY CONSIDERATIONS
+# =============================================================================
+#
+# File System Security:
+# - Read-only volume mounts prevent unauthorized modification of configuration files
+# - Container runs with least-privilege user permissions for process isolation
+# - Path validation prevents directory traversal attacks during file discovery
+# - JSON content validation prevents malicious dashboard configuration injection
+#
+# Network Security:
+# - No external network access required for dashboard provisioning process
+# - Internal Docker network communication only between Grafana and Prometheus
+# - Dashboard configuration isolated within container security context
+#
+# Configuration Security:
+# - YAML parsing includes validation to prevent configuration injection attacks
+# - File system permissions verified before attempting dashboard file access
+# - Error logging excludes sensitive information to prevent information disclosure
+#
+# =============================================================================
+# MONITORING AND ALERTING
+# =============================================================================
+#
+# Health Monitoring:
+# - Dashboard provisioning status available via Grafana API endpoints
+# - Container logs include detailed provisioning success/failure information
+# - File system change detection logs provide audit trail for configuration changes
+# - Dashboard import errors generate specific log entries for troubleshooting
+#
+# Performance Monitoring:
+# - File system polling interval balanced for responsiveness vs. system load
+# - Dashboard JSON file size monitoring for performance optimization
+# - Memory usage tracking for dashboard cache and provisioning process
+# - API response time monitoring for dashboard access and query performance
+#
+# Alerting Configuration:
+# - Monitor Grafana container logs for provisioning error patterns
+# - Alert on dashboard import failures or configuration validation errors
+# - Monitor dashboard folder organization and access permissions
+# - Track dashboard update frequency and modification patterns for security
+#
+# =============================================================================
+# EDUCATIONAL VALUE AND LEARNING OBJECTIVES
+# =============================================================================
+#
+# Infrastructure as Code Concepts:
+# - Configuration-driven dashboard management eliminating manual setup procedures
+# - Version control integration for dashboard configuration change tracking
+# - Reproducible monitoring infrastructure deployment across environments
+# - Automated provisioning workflows reducing operational overhead and errors
+#
+# Container Orchestration Integration:
+# - Docker Compose volume mounting for persistent configuration management
+# - Service dependency management and startup ordering for reliable deployment
+# - Container health checks and monitoring for operational reliability
+# - Environment-specific configuration management and deployment flexibility
+#
+# Production Monitoring Patterns:
+# - Dashboard lifecycle management and versioning for operational maintenance
+# - Folder organization strategies for scalable monitoring infrastructure
+# - Error handling and fallback mechanisms for reliable monitoring operations
+# - Performance optimization through caching and efficient file system polling

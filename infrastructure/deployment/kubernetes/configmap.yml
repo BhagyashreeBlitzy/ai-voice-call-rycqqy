@@ -1,0 +1,457 @@
+# ==============================================================================
+# Kubernetes ConfigMap for Node.js Tutorial Application
+# ==============================================================================
+#
+# Production-ready ConfigMap providing centralized, non-sensitive configuration
+# data for the Node.js tutorial application in a Kubernetes environment.
+# Implements twelve-factor app methodology with strict separation of 
+# configuration from code, enabling environment-specific settings without
+# application rebuilds or container image changes.
+#
+# Compatible with:
+# - Express.js 5.1.0 (enhanced async support, automatic promise error handling)
+# - Node.js 22.11.0 LTS (Active LTS support extending into late 2025)
+# - Kubernetes core/v1 API (ConfigMap resource specification)
+#
+# Integration:
+# - Consumed by pods through deployment.yml envFrom configuration
+# - Mounted as environment variables for runtime configuration
+# - Supports volume mounting for file-based configuration access
+#
+# Educational Value:
+# - Demonstrates Kubernetes configuration management patterns
+# - Shows production-ready configuration organization and security practices
+# - Illustrates environment-specific configuration without code changes
+# - Provides foundation for advanced configuration management topics
+#
+# ==============================================================================
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  # ConfigMap identification and naming
+  name: nodejs-tutorial-config
+  namespace: nodejs-tutorial
+  
+  # Kubernetes recommended labels for resource management and selection
+  labels:
+    # Core Kubernetes recommended labels
+    app.kubernetes.io/name: nodejs-tutorial
+    app.kubernetes.io/instance: hello-world
+    app.kubernetes.io/version: "1.0.0"
+    app.kubernetes.io/component: config
+    app.kubernetes.io/part-of: nodejs-tutorial-app
+    app.kubernetes.io/managed-by: kubectl
+    app.kubernetes.io/created-by: infrastructure-team
+    
+    # Environment and deployment classification
+    environment: production
+    framework: express
+    language: nodejs
+    tier: config
+    
+    # Educational and tutorial metadata labels
+    tutorial.example.com/purpose: educational
+    tutorial.example.com/level: beginner
+    tutorial.example.com/framework: express
+    tutorial.example.com/version: "5.1.0"
+    tutorial.example.com/node-version: "22"
+    
+    # Configuration classification and management
+    config.example.com/type: application-config
+    config.example.com/scope: non-sensitive
+    
+  # Annotations providing detailed metadata and operational information
+  annotations:
+    # ConfigMap description and educational context
+    description: "Configuration data for Node.js tutorial application demonstrating ConfigMap usage in Kubernetes"
+    
+    # Educational documentation and learning resources
+    tutorial.example.com/documentation: "https://github.com/nodejs-tutorial/hello-world/blob/main/infrastructure/README.md"
+    tutorial.example.com/concepts: "kubernetes-configmap,environment-variables,twelve-factor-config"
+    tutorial.example.com/learning-objectives: "configuration-externalization,environment-management,kubernetes-config-injection"
+    
+    # Configuration metadata and operational information
+    config.kubernetes.io/format: "environment-variables"
+    config.kubernetes.io/sensitive-data: "false"
+    config.kubernetes.io/reload-required: "true"
+    
+    # Kubernetes operational metadata (managed by kubectl)
+    kubectl.kubernetes.io/last-applied-configuration: ""
+
+# ==============================================================================
+# CONFIGURATION DATA
+# ==============================================================================
+#
+# All configuration data is provided as key-value pairs that are injected
+# as environment variables into pod containers. Values are production-optimized
+# following the imported production configuration while maintaining educational
+# clarity and operational best practices.
+#
+# Data Categories:
+# 1. Server Configuration - HTTP server and Node.js runtime parameters
+# 2. Express Configuration - Express.js 5.1.0 framework settings
+# 3. Security Configuration - Production security hardening settings
+# 4. Monitoring Configuration - Health checks and metrics collection
+# 5. Feature Configuration - Application feature flags and capabilities
+# 6. Logging Configuration - Structured logging and output settings
+#
+# ==============================================================================
+
+data:
+  # ==========================================================================
+  # CORE SERVER CONFIGURATION
+  # ==========================================================================
+  # Production HTTP server and Node.js runtime configuration parameters
+  # optimized for container deployment and load balancer integration
+  
+  # Runtime environment for Express.js and Node.js optimization
+  NODE_ENV: "production"
+  
+  # HTTP server listening port for container networking
+  PORT: "3000"
+  
+  # Server host binding for container network accessibility (0.0.0.0 for production)
+  HOST: "0.0.0.0"
+  
+  # Request timeout in milliseconds for production responsiveness
+  TIMEOUT: "15000"
+  
+  # Keep-alive timeout for connection reuse optimization
+  KEEP_ALIVE_TIMEOUT: "65000"
+  
+  # Headers timeout slightly higher than keep-alive timeout
+  HEADERS_TIMEOUT: "66000"
+  
+  # Connection queue size for high traffic production environment
+  BACKLOG: "1024"
+  
+  # Maximum HTTP header size for security and performance
+  MAX_HEADER_SIZE: "16384"
+  
+  # Enable proxy trust for load balancer deployment
+  TRUST_PROXY: "true"
+  
+  # ==========================================================================
+  # EXPRESS.JS FRAMEWORK CONFIGURATION
+  # ==========================================================================
+  # Express.js 5.1.0 framework configuration with production optimization
+  # settings leveraging enhanced async support and security improvements
+  
+  # JSON body parser size limit for security
+  JSON_LIMIT: "100kb"
+  
+  # URL encoded body parser size limit for security  
+  URL_ENCODED_LIMIT: "100kb"
+  
+  # Maximum URL parameters for security against parameter pollution
+  PARAMETER_LIMIT: "100"
+  
+  # Strict routing for consistency in production
+  CASE_SENSITIVE_ROUTING: "true"
+  
+  # Strict trailing slash handling for consistency
+  STRICT_ROUTING: "true"
+  
+  # Template caching for performance optimization
+  VIEW_CACHE: "true"
+  
+  # Strong ETags for efficient HTTP caching
+  ETAG: "strong"
+  
+  # Response compression for bandwidth optimization
+  COMPRESSION_ENABLED: "true"
+  
+  # Hide Express.js framework information for security
+  DISABLE_X_POWERED_BY: "true"
+  
+  # ==========================================================================
+  # SECURITY CONFIGURATION
+  # ==========================================================================
+  # Security hardening configuration with strict policies and threat protection
+  # following production security best practices and compliance requirements
+  
+  # Enable CORS with strict origin policy
+  CORS_ENABLED: "true"
+  
+  # No wildcard CORS, explicit origins only for security
+  CORS_ORIGIN: "false"
+  
+  # Credentials not allowed by default for security
+  CORS_CREDENTIALS: "false"
+  
+  # Enable rate limiting for DDoS protection
+  RATE_LIMIT_ENABLED: "true"
+  
+  # 15-minute rate limit window in milliseconds
+  RATE_LIMIT_WINDOW: "900000"
+  
+  # Maximum 100 requests per rate limit window
+  RATE_LIMIT_MAX: "100"
+  
+  # Security headers middleware enabled for protection
+  HELMET_ENABLED: "true"
+  
+  # Strict Content Security Policy for XSS protection
+  CSP_ENABLED: "true"
+  
+  # HTTP Strict Transport Security header
+  HSTS_ENABLED: "true"
+  
+  # X-Content-Type-Options: nosniff header
+  NOSNIFF_ENABLED: "true"
+  
+  # X-Frame-Options for clickjacking protection
+  FRAME_OPTIONS: "DENY"
+  
+  # X-XSS-Protection header for security
+  XSS_PROTECTION: "true"
+  
+  # ==========================================================================
+  # MONITORING AND OBSERVABILITY CONFIGURATION
+  # ==========================================================================
+  # Production monitoring configuration with comprehensive health checks,
+  # metrics collection, and observability features for operational excellence
+  
+  # Application metrics collection enabled for monitoring
+  ENABLE_METRICS: "true"
+  
+  # Prometheus metrics endpoint enabled
+  PROMETHEUS_METRICS: "true"
+  
+  # Response time and throughput tracking
+  PERFORMANCE_MONITORING: "true"
+  
+  # Memory usage and leak detection enabled
+  MEMORY_MONITORING: "true"
+  
+  # Service uptime and availability metrics
+  UPTIME_TRACKING: "true"
+  
+  # Health check endpoint path for monitoring
+  HEALTH_CHECK_PATH: "/health"
+  
+  # Kubernetes readiness probe endpoint
+  READINESS_PROBE_PATH: "/readyz"
+  
+  # Kubernetes liveness probe endpoint
+  LIVENESS_PROBE_PATH: "/livez"
+  
+  # Prometheus metrics endpoint path
+  METRICS_PATH: "/metrics"
+  
+  # Health check timeout in milliseconds
+  HEALTH_CHECK_TIMEOUT: "5000"
+  
+  # Error occurrence and rate tracking enabled
+  ERROR_TRACKING: "true"
+  
+  # ==========================================================================
+  # FEATURE FLAGS AND APPLICATION FUNCTIONALITY
+  # ==========================================================================
+  # Feature flags and application functionality configuration for production
+  # deployment with educational clarity and operational capabilities
+  
+  # Enable primary /hello endpoint for tutorial demonstration
+  HELLO_ENDPOINT: "true"
+  
+  # Enable all health check endpoints for orchestration
+  HEALTH_ENDPOINTS: "true"
+  
+  # Static file serving disabled in production for security
+  STATIC_CONTENT: "false"
+  
+  # Production error handling middleware enabled
+  ERROR_HANDLING: "true"
+  
+  # Input validation enabled for security
+  REQUEST_VALIDATION: "true"
+  
+  # Response compression for performance optimization
+  RESPONSE_COMPRESSION: "true"
+  
+  # Response caching for performance optimization
+  CACHING_ENABLED: "true"
+  
+  # Graceful shutdown handling enabled
+  GRACEFUL_SHUTDOWN: "true"
+  
+  # Node.js cluster mode disabled for Kubernetes orchestration
+  CLUSTER_SUPPORT: "false"
+  
+  # ==========================================================================
+  # LOGGING CONFIGURATION
+  # ==========================================================================
+  # Production logging configuration with structured output, minimal verbosity,
+  # and integration with container logging and monitoring systems
+  
+  # Production log level filtering to information and above
+  LOG_LEVEL: "info"
+  
+  # Debug mode disabled in production for performance
+  DEBUG: "false"
+  
+  # Verbose logging disabled in production
+  VERBOSE: "false"
+  
+  # Request logging disabled for performance in production
+  REQUEST_LOGGING: "false"
+  
+  # HTTP access logs enabled for monitoring
+  ACCESS_LOGS: "true"
+  
+  # Error logs enabled for troubleshooting
+  ERROR_LOGS: "true"
+  
+  # Log rotation enabled for disk management
+  LOG_ROTATION: "true"
+  
+  # Maximum log file size before rotation
+  MAX_LOG_SIZE: "100MB"
+  
+  # Maximum number of rotated log files
+  MAX_LOG_FILES: "10"
+  
+  # Structured JSON logging for log aggregation
+  LOG_FORMAT: "json"
+  
+  # No colors in production logs for clean parsing
+  COLORIZE: "false"
+  
+  # ISO timestamps for accurate log correlation
+  TIMESTAMP: "true"
+  
+  # Stack traces disabled in production for security
+  ERROR_STACK_TRACE: "false"
+
+# ==============================================================================
+# CONFIGURATION USAGE EXAMPLES
+# ==============================================================================
+#
+# DEPLOYMENT INTEGRATION:
+# The ConfigMap is consumed by Kubernetes Deployment resources through
+# environment variable injection using the envFrom.configMapRef specification:
+#
+# spec:
+#   template:
+#     spec:
+#       containers:
+#       - name: nodejs-tutorial
+#         envFrom:
+#         - configMapRef:
+#             name: nodejs-tutorial-config
+#
+# VOLUME MOUNTING:
+# ConfigMap data can also be mounted as files in the container filesystem:
+#
+# spec:
+#   template:
+#     spec:
+#       volumes:
+#       - name: config-volume
+#         configMap:
+#           name: nodejs-tutorial-config
+#       containers:
+#       - name: nodejs-tutorial
+#         volumeMounts:
+#         - name: config-volume
+#           mountPath: /etc/config
+#
+# SELECTIVE INJECTION:
+# Individual configuration values can be injected as specific environment variables:
+#
+# spec:
+#   template:
+#     spec:
+#       containers:
+#       - name: nodejs-tutorial
+#         env:
+#         - name: NODE_ENV
+#           valueFrom:
+#             configMapKeyRef:
+#               name: nodejs-tutorial-config
+#               key: NODE_ENV
+#
+# ==============================================================================
+# OPERATIONAL PROCEDURES
+# ==============================================================================
+#
+# CONFIGMAP MANAGEMENT:
+#
+# Create ConfigMap:
+#   kubectl apply -f configmap.yml
+#
+# View ConfigMap:
+#   kubectl get configmap nodejs-tutorial-config -n nodejs-tutorial
+#
+# Describe ConfigMap:
+#   kubectl describe configmap nodejs-tutorial-config -n nodejs-tutorial
+#
+# Edit ConfigMap:
+#   kubectl edit configmap nodejs-tutorial-config -n nodejs-tutorial
+#
+# Delete ConfigMap:
+#   kubectl delete configmap nodejs-tutorial-config -n nodejs-tutorial
+#
+# CONFIGURATION UPDATES:
+#
+# Update Process:
+# 1. Modify configmap.yml with new configuration values
+# 2. Apply changes: kubectl apply -f configmap.yml
+# 3. Restart pods to load new configuration:
+#    kubectl rollout restart deployment/nodejs-tutorial -n nodejs-tutorial
+# 4. Verify configuration: kubectl logs deployment/nodejs-tutorial -n nodejs-tutorial
+#
+# TROUBLESHOOTING:
+#
+# Verify ConfigMap data:
+#   kubectl get configmap nodejs-tutorial-config -n nodejs-tutorial -o yaml
+#
+# Check pod environment variables:
+#   kubectl exec <pod-name> -n nodejs-tutorial -- env | grep NODE_ENV
+#
+# Validate configuration loading:
+#   kubectl logs <pod-name> -n nodejs-tutorial
+#
+# ==============================================================================
+# SECURITY CONSIDERATIONS
+# ==============================================================================
+#
+# DATA SENSITIVITY:
+# - ConfigMap contains only non-sensitive configuration data
+# - Sensitive data (passwords, API keys, certificates) should use Secrets
+# - ConfigMap data is stored in plain text in etcd (not encrypted at rest)
+# - Environment variables are visible in pod processes and container inspect
+#
+# ACCESS CONTROL:
+# - RBAC policies control ConfigMap read/write access
+# - Namespace isolation provides resource scope boundaries
+# - Service account permissions limit ConfigMap access
+# - Kubernetes audit logs track ConfigMap modifications
+#
+# NETWORK SECURITY:
+# - ConfigMap data transmitted in clear text within cluster
+# - Pod-to-ConfigMap access requires appropriate network policies
+# - TLS encryption handled by Kubernetes cluster infrastructure
+#
+# ==============================================================================
+# EDUCATIONAL OBJECTIVES ACHIEVED
+# ==============================================================================
+#
+# CONCEPTS DEMONSTRATED:
+# - Kubernetes ConfigMap resource creation and YAML structure
+# - Environment variable externalization following twelve-factor app principles  
+# - Configuration separation from application code for portability
+# - Production-ready configuration patterns with security optimization
+# - Integration between ConfigMap and Deployment resources
+# - Operational procedures for configuration lifecycle management
+#
+# LEARNING OUTCOMES:
+# - Understanding ConfigMap role in Kubernetes configuration management
+# - Implementing configuration externalization without code changes
+# - Distinguishing between ConfigMap and Secrets for data sensitivity
+# - Configuring production-ready settings for Node.js applications
+# - Managing environment-specific configuration in container orchestration
+# - Troubleshooting configuration issues in Kubernetes environments
+#
+# ==============================================================================

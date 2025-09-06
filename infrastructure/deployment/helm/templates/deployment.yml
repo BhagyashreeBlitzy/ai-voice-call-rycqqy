@@ -1,0 +1,377 @@
+{{/*
+Kubernetes Deployment Template for Node.js Tutorial Application with Express.js 5.1.0
+=================================================================================
+
+This Helm template generates production-ready Kubernetes Deployment manifests for the Node.js tutorial 
+application using Go templating syntax and Helm built-in objects. Creates scalable container deployments 
+with dynamic configuration from values.yml, comprehensive security contexts, health checks, and monitoring 
+integration while demonstrating educational Helm templating patterns.
+
+Features:
+- Dynamic configuration through Helm values with multi-environment support and conditional rendering
+- Production-ready security hardening with non-root execution and restricted security contexts
+- Comprehensive health checks (startup, liveness, readiness) with Express.js endpoint integration
+- Educational Helm templating demonstrating Go template syntax and best practices
+- Resource management with requests/limits and horizontal scaling support
+- Container orchestration patterns with rolling updates and anti-affinity configuration
+- Monitoring integration with Prometheus annotations and observability patterns
+- Multi-environment deployment support with values-based configuration overrides
+
+Template Objects:
+- .Values: Dynamic configuration values from values.yml with environment-specific overrides
+- .Chart: Chart metadata from Chart.yml for consistent naming and versioning
+- .Release: Deployment-specific information including name, namespace, and revision
+- .Template: Template metadata for debugging and operational tracking
+
+Educational Concepts:
+- Helm Go template syntax with conditional rendering and value interpolation
+- Kubernetes Deployment resource structure with pod template specification
+- Container security contexts and Kubernetes security policies
+- Health check patterns for container orchestration and service reliability
+- Resource management and scaling strategies for production deployments
+- Template helper functions for consistent resource naming and labeling
+*/}}
+
+{{/*
+Template Header with API Version and Resource Kind
+*/}}
+apiVersion: apps/v1
+kind: Deployment
+
+{{/*
+Metadata Section with Dynamic Naming, Labeling, and Educational Annotations
+*/}}
+metadata:
+  name: {{ include "nodejs-tutorial.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "nodejs-tutorial.labels" . | nindent 4 }}
+  annotations:
+    # Deployment management and tracking annotations
+    deployment.kubernetes.io/revision: "{{ .Release.Revision }}"
+    helm.sh/managed-by: "{{ .Release.Service }}"
+    helm.sh/chart-version: "{{ .Chart.Version }}"
+    helm.sh/app-version: "{{ .Chart.AppVersion }}"
+    
+    # Tutorial and educational metadata
+    tutorial.example.com/framework: "express"
+    tutorial.example.com/framework-version: "5.1.0"
+    tutorial.example.com/node-version: "22"
+    tutorial.example.com/endpoints: "/hello,/health,/livez,/readyz"
+    tutorial.example.com/concepts: "helm-deployment-templates,kubernetes-orchestration,container-scaling,health-monitoring"
+    tutorial.example.com/learning-objectives: "helm-templating,dynamic-configuration,production-deployment-patterns,security-contexts"
+    
+    # Deployment configuration and strategy
+    deployment.example.com/strategy: "{{ .Values.deploymentStrategy.type | default "RollingUpdate" }}"
+    deployment.example.com/security-standard: "restricted-pod-security-standard"
+    
+    {{- if .Values.monitoring.enabled }}
+    # Monitoring and observability annotations
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "{{ .Values.service.targetPort | default 3000 }}"
+    prometheus.io/path: "/health"
+    {{- end }}
+    
+    {{- with .Values.podAnnotations }}
+    # Additional custom annotations from values
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+
+{{/*
+Deployment Specification with Scaling, Strategy, and Pod Template
+*/}}
+spec:
+  # Replica configuration with dynamic scaling support
+  replicas: {{ .Values.replicaCount | default 1 }}
+  
+  # Deployment strategy configuration for rolling updates
+  strategy:
+    type: {{ .Values.deploymentStrategy.type | default "RollingUpdate" }}
+    {{- if eq (.Values.deploymentStrategy.type | default "RollingUpdate") "RollingUpdate" }}
+    rollingUpdate:
+      maxUnavailable: {{ .Values.deploymentStrategy.rollingUpdate.maxUnavailable | default 1 }}
+      maxSurge: {{ .Values.deploymentStrategy.rollingUpdate.maxSurge | default 1 }}
+    {{- end }}
+  
+  # Revision history for rollback capabilities
+  revisionHistoryLimit: {{ .Values.revisionHistoryLimit | default 3 }}
+  
+  # Pod selector using consistent labels
+  selector:
+    matchLabels:
+      {{- include "nodejs-tutorial.selectorLabels" . | nindent 6 }}
+  
+  # Pod template specification with comprehensive configuration
+  template:
+    metadata:
+      labels:
+        {{- include "nodejs-tutorial.selectorLabels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      annotations:
+        # Pod-level annotations for monitoring and configuration
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+        {{- if .Values.monitoring.enabled }}
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "{{ .Values.service.targetPort | default 3000 }}"
+        prometheus.io/path: "/health"
+        {{- end }}
+        
+        # Educational and tutorial metadata
+        tutorial.example.com/container-port: "3000"
+        tutorial.example.com/health-endpoints: "/health,/livez,/readyz"
+        tutorial.example.com/security-context: "non-root-user-1000"
+    
+    spec:
+      # Service account configuration for RBAC
+      serviceAccountName: {{ include "nodejs-tutorial.serviceAccountName" . }}
+      automountServiceAccountToken: {{ .Values.serviceAccount.automount | default false }}
+      
+      # Security context for pod-level security policies
+      {{- with .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      
+      # DNS and networking configuration
+      dnsPolicy: {{ .Values.dnsPolicy | default "ClusterFirst" }}
+      
+      # Termination grace period for graceful shutdown
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds | default 30 }}
+      
+      # Image pull secrets for private registries
+      {{- with .Values.image.pullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      
+      # Container specification with comprehensive configuration
+      containers:
+      - name: {{ .Chart.Name }}
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy | default "IfNotPresent" }}
+        
+        # Container ports configuration
+        ports:
+        {{- range .Values.ports | default (list (dict "name" "http" "containerPort" 3000 "protocol" "TCP")) }}
+        - name: {{ .name }}
+          containerPort: {{ .containerPort }}
+          protocol: {{ .protocol }}
+        {{- end }}
+        
+        # Environment variables configuration
+        env:
+        {{- range .Values.env.static | default (list (dict "name" "NODE_ENV" "value" "production") (dict "name" "PORT" "value" "3000") (dict "name" "HOST" "value" "0.0.0.0") (dict "name" "LOG_LEVEL" "value" "info")) }}
+        - name: {{ .name }}
+          value: {{ .value | quote }}
+        {{- end }}
+        {{- with .Values.env.envFrom }}
+        envFrom:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        
+        # Resource management with production-ready defaults
+        {{- if .Values.resources }}
+        resources:
+          {{- toYaml .Values.resources | nindent 10 }}
+        {{- else }}
+        resources:
+          limits:
+            cpu: 500m
+            memory: 512Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+        {{- end }}
+        
+        # Container security context with hardening
+        {{- if .Values.securityContext }}
+        securityContext:
+          {{- toYaml .Values.securityContext | nindent 10 }}
+        {{- else }}
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: false
+          runAsNonRoot: true
+          runAsUser: 1000
+          runAsGroup: 1000
+          capabilities:
+            drop:
+              - ALL
+        {{- end }}
+        
+        # Startup probe for application initialization
+        {{- if .Values.healthChecks.startupProbe }}
+        startupProbe:
+          httpGet:
+            path: {{ .Values.healthChecks.startupProbe.httpGet.path | default "/health" }}
+            port: {{ (index .Values.ports 0).name | default "http" }}
+            scheme: HTTP
+          initialDelaySeconds: {{ .Values.healthChecks.startupProbe.initialDelaySeconds | default 10 }}
+          periodSeconds: {{ .Values.healthChecks.startupProbe.periodSeconds | default 5 }}
+          timeoutSeconds: {{ .Values.healthChecks.startupProbe.timeoutSeconds | default 3 }}
+          successThreshold: {{ .Values.healthChecks.startupProbe.successThreshold | default 1 }}
+          failureThreshold: {{ .Values.healthChecks.startupProbe.failureThreshold | default 6 }}
+        {{- end }}
+        
+        # Liveness probe for container restart policy
+        {{- if .Values.healthChecks.livenessProbe }}
+        livenessProbe:
+          httpGet:
+            path: {{ .Values.healthChecks.livenessProbe.httpGet.path | default "/livez" }}
+            port: {{ (index .Values.ports 0).name | default "http" }}
+            scheme: HTTP
+          initialDelaySeconds: {{ .Values.healthChecks.livenessProbe.initialDelaySeconds | default 30 }}
+          periodSeconds: {{ .Values.healthChecks.livenessProbe.periodSeconds | default 30 }}
+          timeoutSeconds: {{ .Values.healthChecks.livenessProbe.timeoutSeconds | default 5 }}
+          successThreshold: {{ .Values.healthChecks.livenessProbe.successThreshold | default 1 }}
+          failureThreshold: {{ .Values.healthChecks.livenessProbe.failureThreshold | default 3 }}
+        {{- end }}
+        
+        # Readiness probe for service endpoint management
+        {{- if .Values.healthChecks.readinessProbe }}
+        readinessProbe:
+          httpGet:
+            path: {{ .Values.healthChecks.readinessProbe.httpGet.path | default "/readyz" }}
+            port: {{ (index .Values.ports 0).name | default "http" }}
+            scheme: HTTP
+          initialDelaySeconds: {{ .Values.healthChecks.readinessProbe.initialDelaySeconds | default 5 }}
+          periodSeconds: {{ .Values.healthChecks.readinessProbe.periodSeconds | default 10 }}
+          timeoutSeconds: {{ .Values.healthChecks.readinessProbe.timeoutSeconds | default 3 }}
+          successThreshold: {{ .Values.healthChecks.readinessProbe.successThreshold | default 1 }}
+          failureThreshold: {{ .Values.healthChecks.readinessProbe.failureThreshold | default 3 }}
+        {{- end }}
+        
+        # Volume mounts for writable directories when using read-only filesystem
+        {{- if and .Values.securityContext.readOnlyRootFilesystem (eq .Values.securityContext.readOnlyRootFilesystem true) }}
+        volumeMounts:
+        - name: tmp-volume
+          mountPath: /tmp
+          readOnly: false
+        - name: cache-volume
+          mountPath: /usr/src/app/.cache
+          readOnly: false
+        {{- end }}
+      
+      # Node selector for pod placement
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      
+      # Tolerations for node taints
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      
+      # Affinity rules for pod scheduling
+      {{- if .Values.affinity }}
+      affinity:
+        {{- toYaml .Values.affinity | nindent 8 }}
+      {{- else if gt (.Values.replicaCount | int) 1 }}
+      # Anti-affinity for high availability when multiple replicas
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchLabels:
+                  {{- include "nodejs-tutorial.selectorLabels" . | nindent 18 }}
+              topologyKey: kubernetes.io/hostname
+      {{- end }}
+      
+      # Topology spread constraints for even distribution
+      {{- with .Values.topologySpreadConstraints }}
+      topologySpreadConstraints:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      
+      # Volumes for writable directories when using read-only filesystem
+      {{- if and .Values.securityContext.readOnlyRootFilesystem (eq .Values.securityContext.readOnlyRootFilesystem true) }}
+      volumes:
+      - name: tmp-volume
+        emptyDir:
+          medium: Memory
+          sizeLimit: {{ .Values.volumes.tmpVolume.sizeLimit | default "50Mi" }}
+      - name: cache-volume
+        emptyDir:
+          sizeLimit: {{ .Values.volumes.cacheVolume.sizeLimit | default "100Mi" }}
+      {{- end }}
+
+{{/*
+=================================================================================
+HELM TEMPLATE HELPER FUNCTIONS
+=================================================================================
+
+These helper functions provide consistent naming, labeling, and resource management
+patterns across all Helm templates in the chart. They demonstrate Helm templating
+best practices and ensure operational consistency.
+*/}}
+
+{{/*
+Expand the name of the chart.
+*/}}
+{{- define "nodejs-tutorial.name" -}}
+{{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
+{{- end }}
+
+{{/*
+Create a default fully qualified app name.
+We truncate at 63 chars because some Kubernetes name fields are limited to this (by the DNS naming spec).
+If release name contains chart name it will be used as a full name.
+*/}}
+{{- define "nodejs-tutorial.fullname" -}}
+{{- if .Values.fullnameOverride }}
+{{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }}
+{{- else }}
+{{- $name := default .Chart.Name .Values.nameOverride }}
+{{- if contains $name .Release.Name }}
+{{- .Release.Name | trunc 63 | trimSuffix "-" }}
+{{- else }}
+{{- printf "%s-%s" .Release.Name $name | trunc 63 | trimSuffix "-" }}
+{{- end }}
+{{- end }}
+{{- end }}
+
+{{/*
+Create chart name and version as used by the chart label.
+*/}}
+{{- define "nodejs-tutorial.chart" -}}
+{{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}
+{{- end }}
+
+{{/*
+Common labels for all resources
+*/}}
+{{- define "nodejs-tutorial.labels" -}}
+helm.sh/chart: {{ include "nodejs-tutorial.chart" . }}
+{{ include "nodejs-tutorial.selectorLabels" . }}
+{{- if .Chart.AppVersion }}
+app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
+{{- end }}
+app.kubernetes.io/managed-by: {{ .Release.Service }}
+{{- end }}
+
+{{/*
+Selector labels for pod selection
+*/}}
+{{- define "nodejs-tutorial.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "nodejs-tutorial.name" . }}
+app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end }}
+
+{{/*
+Create the name of the service account to use
+*/}}
+{{- define "nodejs-tutorial.serviceAccountName" -}}
+{{- if .Values.serviceAccount.create }}
+{{- default (include "nodejs-tutorial.fullname" .) .Values.serviceAccount.name }}
+{{- else }}
+{{- default "default" .Values.serviceAccount.name }}
+{{- end }}
+{{- end }}
