@@ -123,13 +123,13 @@ function handleTimeoutError(err, req, res, next) {
     if (isTimeoutError) {
         // Build comprehensive request context for timeout logging
         const requestContext = {
-            method: req.method || 'UNKNOWN',
-            url: req.originalUrl || req.url || 'UNKNOWN',
-            userAgent: req.get('User-Agent') || 'UNKNOWN',
-            ip: req.ip || req.connection?.remoteAddress || 'UNKNOWN',
+            method: req?.method || 'UNKNOWN',
+            url: req?.originalUrl || req?.url || 'UNKNOWN',
+            userAgent: req?.get ? req.get('User-Agent') : 'UNKNOWN',
+            ip: req?.ip || req?.connection?.remoteAddress || 'UNKNOWN',
             timestamp: new Date().toISOString(),
-            timeout: req.timeoutMs || DEFAULT_TIMEOUT_MS,
-            duration: req.startTime ? Date.now() - req.startTime : 'UNKNOWN'
+            timeout: req?.timeoutMs || DEFAULT_TIMEOUT_MS,
+            duration: req?.startTime ? Date.now() - req.startTime : 'UNKNOWN'
         };
         
         // Log timeout event with comprehensive context for observability

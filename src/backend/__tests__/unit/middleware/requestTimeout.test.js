@@ -240,19 +240,30 @@ describe('requestTimeout middleware', () => {
 
     // Test case: Verify middleware handles timeout creation failure gracefully
     test('should handle timeout creation failure gracefully', () => {
-        // Arrange: Mock createRequestTimeout to throw an error
-        const createRequestTimeoutSpy = jest.spyOn(require('../../../utils/requestTimeout.js'), 'createRequestTimeout');
+        // Arrange: Clear module cache and mock createRequestTimeout to throw an error
+        jest.resetModules();
+        const utils = require('../../../utils/requestTimeout.js');
+        const { logger: loggerReloaded } = require('../../../utils/logger.js');
+        
+        // Re-spy on logger after module reset
+        jest.spyOn(loggerReloaded, 'info').mockImplementation(() => {});
+        jest.spyOn(loggerReloaded, 'warn').mockImplementation(() => {});
+        jest.spyOn(loggerReloaded, 'error').mockImplementation(() => {});
+        
+        const createRequestTimeoutSpy = jest.spyOn(utils, 'createRequestTimeout');
         createRequestTimeoutSpy.mockImplementation(() => {
             throw new Error('Timeout creation failed');
         });
 
-        const middleware = requestTimeout({ timeoutMs: TEST_TIMEOUT_MS });
+        // Re-require the middleware after setting up the spy
+        const { requestTimeout: requestTimeoutReloaded } = require('../../../middleware/requestTimeout.js');
+        const middleware = requestTimeoutReloaded({ timeoutMs: TEST_TIMEOUT_MS });
 
         // Act: Execute middleware
         middleware(mockReq, mockRes, mockNext);
 
         // Assert: Verify error was logged and middleware continued
-        expect(logger.error).toHaveBeenCalledWith(
+        expect(loggerReloaded.error).toHaveBeenCalledWith(
             'Failed to create request timeout controller',
             expect.objectContaining({
                 action: 'timeout_creation_failed'
@@ -312,8 +323,17 @@ describe('requestTimeout middleware', () => {
 
     // Test case: Verify middleware handles already aborted signal gracefully
     test('should handle already aborted signal gracefully', () => {
-        // Arrange: Mock createRequestTimeout to return already aborted controller
-        const createRequestTimeoutSpy = jest.spyOn(require('../../../utils/requestTimeout.js'), 'createRequestTimeout');
+        // Arrange: Clear module cache and mock createRequestTimeout to return already aborted controller
+        jest.resetModules();
+        const utils = require('../../../utils/requestTimeout.js');
+        const { logger: loggerReloaded } = require('../../../utils/logger.js');
+        
+        // Re-spy on logger after module reset
+        jest.spyOn(loggerReloaded, 'info').mockImplementation(() => {});
+        jest.spyOn(loggerReloaded, 'warn').mockImplementation(() => {});
+        jest.spyOn(loggerReloaded, 'error').mockImplementation(() => {});
+        
+        const createRequestTimeoutSpy = jest.spyOn(utils, 'createRequestTimeout');
         const mockController = new AbortController();
         mockController.abort(); // Pre-abort the controller
         
@@ -322,7 +342,9 @@ describe('requestTimeout middleware', () => {
             timeoutId: setTimeout(() => {}, 1000)
         });
 
-        const middleware = requestTimeout({ timeoutMs: TEST_TIMEOUT_MS });
+        // Re-require the middleware after setting up the spy
+        const { requestTimeout: requestTimeoutReloaded } = require('../../../middleware/requestTimeout.js');
+        const middleware = requestTimeoutReloaded({ timeoutMs: TEST_TIMEOUT_MS });
 
         // Act: Execute middleware
         middleware(mockReq, mockRes, mockNext);
@@ -479,20 +501,12 @@ describe('handleTimeoutError', () => {
                     method: 'GET',
                     url: '/test',
                     ip: '127.0.0.1',
-                    timeout: TEST_TIMEOUT_MS
+                    timeout: TEST_TIMEOUT_MS,
+                    userAgent: 'Test-Agent',
+                    duration: expect.any(Number)
                 })
             })
         );
-
-        // Verify comprehensive request context was included
-        const logCall = logger.warn.mock.calls[0];
-        const logContext = logCall[1];
-        expect(logContext.request).toHaveProperty('method', 'GET');
-        expect(logContext.request).toHaveProperty('url', '/test');
-        expect(logContext.request).toHaveProperty('userAgent', 'Test-Agent');
-        expect(logContext.request).toHaveProperty('ip', '127.0.0.1');
-        expect(logContext.request).toHaveProperty('timeout', TEST_TIMEOUT_MS);
-        expect(logContext.request).toHaveProperty('duration');
     });
 
     // Test case: Verify handleTimeoutError handles undefined/null request gracefully

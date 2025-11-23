@@ -21,7 +21,7 @@ async function helloController(req, res, next) {
             method: req.method,
             path: req.path,
             userAgent: req.get('User-Agent'),
-            ip: req.ip || req.connection.remoteAddress,
+            ip: req.ip || (req.connection && req.connection.remoteAddress),
             timestamp: new Date().toISOString()
         });
 
@@ -50,7 +50,7 @@ async function helloController(req, res, next) {
                 method: req.method,
                 path: req.path,
                 userAgent: req.get('User-Agent'),
-                ip: req.ip || req.connection.remoteAddress,
+                ip: req.ip || (req.connection && req.connection.remoteAddress),
                 timestamp: new Date().toISOString()
             }
         });
