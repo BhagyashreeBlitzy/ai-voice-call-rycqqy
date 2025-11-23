@@ -386,24 +386,23 @@ describe('Integration: App', () => {
             // Clear previous log output
             global.logOutput = [];
             
-            // Send request that will generate error
+            // Send request that will generate 404 client error (logged at warn level)
             await request
                 .get('/nonexistent')
                 .expect(404);
             
-            // Find error-related log entries
-            const errorLogs = global.logOutput.filter(log => 
-                log.level === 'error' || 
-                log.message.includes('404') ||
-                log.message.includes('not found')
+            // Find warning-related log entries (4xx errors log at warn level per logging middleware design)
+            const warnLogs = global.logOutput.filter(log => 
+                log.level === 'warn' && 
+                (log.message.includes('404') || log.message.includes('nonexistent'))
             );
             
-            // Verify error logging occurred
-            expect(errorLogs.length).toBeGreaterThanOrEqual(0);
+            // Verify warning logging occurred for 404
+            expect(warnLogs.length).toBeGreaterThan(0);
             
-            // If error logs exist, validate their structure
-            errorLogs.forEach(log => {
-                expect(log.level).toBe('error');
+            // Validate log structure
+            warnLogs.forEach(log => {
+                expect(log.level).toBe('warn');  // 4xx errors log at warn level
                 expect(log).toHaveProperty('message');
                 expect(log).toHaveProperty('timestamp');
             });
