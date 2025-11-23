@@ -1,0 +1,413 @@
+name: CD - Continuous Deployment
+
+# Workflow triggers
+on:
+  push:
+    branches: [main, 'release/*']
+  workflow_dispatch:
+    inputs:
+      skip_tests:
+        description: 'Skip tests before deployment'
+        required: false
+        default: 'false'
+        type: boolean
+      deployment_target:
+        description: 'Specific deployment target'
+        required: false
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - docker
+          - docker-prod
+          - k8s
+          - heroku
+          - vercel
+          - cloudrun
+
+# Global environment variables
+env:
+  NODE_VERSION: '22.x'
+  DOCKER_IMAGE_NAME: 'nodejs-tutorial-backend'
+  DOCKER_REGISTRY: 'ghcr.io'
+  K8S_NAMESPACE: 'backend'
+  HEROKU_APP_NAME: 'nodejs-tutorial-backend'
+  VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+  GCLOUD_PROJECT_ID: ${{ secrets.GCLOUD_PROJECT_ID }}
+  DEPLOY_TARGETS: 'docker,docker-prod,k8s,heroku,vercel,cloudrun'
+
+# Workflow jobs
+jobs:
+  # Job 1: Build, test, and validate the application
+  build_and_test:
+    name: Build, Test & Validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    
+    steps:
+      # Step 1: Checkout repository code
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          
+      # Step 2: Set up Node.js environment
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: 'src/backend/package-lock.json'
+          
+      # Step 3: Cache npm dependencies
+      - name: Cache npm dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('src/backend/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+            
+      # Step 4: Install dependencies
+      - name: Install dependencies
+        run: |
+          cd src/backend
+          npm ci --no-audit --prefer-offline
+          
+      # Step 5: Run linting
+      - name: Run ESLint
+        run: |
+          cd src/backend
+          npm run lint
+          
+      # Step 6: Run tests with coverage
+      - name: Run tests with coverage
+        run: |
+          cd src/backend
+          npm run test:ci
+          
+      # Step 7: Run security audit
+      - name: Run security audit
+        run: |
+          cd src/backend
+          npm audit --audit-level=high
+          
+      # Step 8: Upload test results
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: |
+            src/backend/coverage/
+            src/backend/test-results.xml
+          retention-days: 30
+          
+      # Step 9: Upload build artifacts
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-artifacts
+          path: |
+            src/backend/
+            !src/backend/node_modules/
+            !src/backend/coverage/
+          retention-days: 7
+
+  # Job 2: Build and push Docker images
+  docker_build_and_push:
+    name: Docker Build & Push
+    runs-on: ubuntu-latest
+    needs: build_and_test
+    timeout-minutes: 20
+    
+    steps:
+      # Step 1: Checkout repository
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        
+      # Step 2: Set up Docker Buildx
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        
+      # Step 3: Log in to container registry
+      - name: Log in to GitHub Container Registry
+        if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/')
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.DOCKER_REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+          
+      # Step 4: Extract metadata
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.DOCKER_REGISTRY }}/${{ github.repository }}/${{ env.DOCKER_IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,prefix=sha-
+            type=raw,value=latest,enable={{is_default_branch}}
+            
+      # Step 5: Build and push Docker image
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./src/backend
+          file: ./src/backend/Dockerfile
+          push: ${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/') }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          platforms: linux/amd64,linux/arm64
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            NODE_ENV=production
+            BUILD_TARGET=production
+            
+      # Step 6: Upload Docker build logs
+      - name: Upload Docker build logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-build-logs
+          path: /tmp/docker-build-*.log
+          retention-days: 7
+
+  # Job 3: Deploy to multiple targets using matrix strategy
+  deploy:
+    name: Deploy to ${{ matrix.target }}
+    runs-on: ubuntu-latest
+    needs: [build_and_test, docker_build_and_push]
+    timeout-minutes: 30
+    
+    strategy:
+      matrix:
+        target: ${{ fromJson(github.event.inputs.deployment_target == 'all' && '["docker", "docker-prod", "k8s", "heroku", "vercel", "cloudrun"]' || github.event.inputs.deployment_target && format('["{0}"]', github.event.inputs.deployment_target) || '["docker", "docker-prod", "k8s", "heroku", "vercel", "cloudrun"]') }}
+      fail-fast: false
+      max-parallel: 3
+      
+    steps:
+      # Step 1: Checkout repository
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        
+      # Step 2: Set up Node.js for deployment scripts
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          
+      # Step 3: Set up Docker (for docker and kubernetes targets)
+      - name: Set up Docker Buildx
+        if: matrix.target == 'docker' || matrix.target == 'docker-prod' || matrix.target == 'k8s' || matrix.target == 'cloudrun'
+        uses: docker/setup-buildx-action@v3
+        
+      # Step 4: Set up kubectl for Kubernetes deployment
+      - name: Set up kubectl
+        if: matrix.target == 'k8s'
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'v1.28.0'
+          
+      # Step 5: Set up Google Cloud SDK for Cloud Run deployment
+      - name: Set up Google Cloud SDK
+        if: matrix.target == 'cloudrun'
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          service_account_key: ${{ secrets.GCLOUD_SERVICE_KEY }}
+          project_id: ${{ env.GCLOUD_PROJECT_ID }}
+          
+      # Step 6: Set up Heroku CLI for Heroku deployment
+      - name: Set up Heroku CLI
+        if: matrix.target == 'heroku'
+        uses: akhileshns/heroku-deploy@v3.12.14
+        with:
+          heroku_api_key: ${{ secrets.HEROKU_API_KEY }}
+          heroku_app_name: ${{ env.HEROKU_APP_NAME }}
+          heroku_email: ${{ secrets.HEROKU_EMAIL }}
+          usedocker: true
+          docker_build_args: |
+            NODE_ENV
+            BUILD_TARGET
+        env:
+          NODE_ENV: production
+          BUILD_TARGET: production
+          
+      # Step 7: Deploy to Vercel
+      - name: Deploy to Vercel
+        if: matrix.target == 'vercel'
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-project-id: ${{ env.VERCEL_PROJECT_ID }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          working-directory: ./
+          production: ${{ github.ref == 'refs/heads/main' }}
+          
+      # Step 8: Configure environment variables for deployment
+      - name: Configure deployment environment
+        run: |
+          # Set deployment-specific environment variables
+          echo "DEPLOY_TARGET=${{ matrix.target }}" >> $GITHUB_ENV
+          echo "IMAGE_NAME=${{ env.DOCKER_IMAGE_NAME }}" >> $GITHUB_ENV
+          echo "SKIP_TESTS=${{ github.event.inputs.skip_tests || 'false' }}" >> $GITHUB_ENV
+          echo "VERBOSE=true" >> $GITHUB_ENV
+          echo "CI=true" >> $GITHUB_ENV
+          
+          # Set target-specific configurations
+          case "${{ matrix.target }}" in
+            "k8s")
+              echo "KUBECONFIG_DATA=${{ secrets.KUBECONFIG }}" >> $GITHUB_ENV
+              ;;
+            "heroku")
+              echo "HEROKU_API_KEY=${{ secrets.HEROKU_API_KEY }}" >> $GITHUB_ENV
+              ;;
+            "vercel")
+              echo "VERCEL_TOKEN=${{ secrets.VERCEL_TOKEN }}" >> $GITHUB_ENV
+              ;;
+            "cloudrun")
+              echo "GCLOUD_SERVICE_KEY=${{ secrets.GCLOUD_SERVICE_KEY }}" >> $GITHUB_ENV
+              echo "GCLOUD_PROJECT_ID=${{ env.GCLOUD_PROJECT_ID }}" >> $GITHUB_ENV
+              ;;
+          esac
+          
+      # Step 9: Set up Kubernetes config
+      - name: Set up Kubernetes config
+        if: matrix.target == 'k8s'
+        run: |
+          mkdir -p ~/.kube
+          echo "${{ secrets.KUBECONFIG }}" | base64 -d > ~/.kube/config
+          chmod 600 ~/.kube/config
+          
+      # Step 10: Execute deployment using deploy.sh script
+      - name: Execute deployment
+        run: |
+          # Make deploy script executable
+          chmod +x ./infrastructure/scripts/deploy.sh
+          
+          # Execute deployment for the specific target
+          ./infrastructure/scripts/deploy.sh ${{ matrix.target }}
+          
+      # Step 11: Run health check
+      - name: Run health check
+        run: |
+          # Health check logic based on deployment target
+          case "${{ matrix.target }}" in
+            "docker"|"docker-prod")
+              echo "Waiting for local deployment to be ready..."
+              timeout 120 bash -c 'until curl -f http://localhost:3000/hello; do sleep 5; done'
+              ;;
+            "k8s")
+              echo "Waiting for Kubernetes deployment to be ready..."
+              kubectl wait --for=condition=ready pod -l app=nodejs-tutorial-backend -n ${{ env.K8S_NAMESPACE }} --timeout=300s
+              kubectl port-forward -n ${{ env.K8S_NAMESPACE }} svc/backend 3000:3000 &
+              sleep 10
+              timeout 60 bash -c 'until curl -f http://localhost:3000/hello; do sleep 5; done'
+              ;;
+            "heroku")
+              echo "Waiting for Heroku deployment to be ready..."
+              timeout 180 bash -c 'until curl -f https://${{ env.HEROKU_APP_NAME }}.herokuapp.com/hello; do sleep 10; done'
+              ;;
+            "vercel")
+              echo "Vercel deployment health check handled by platform"
+              ;;
+            "cloudrun")
+              echo "Waiting for Cloud Run deployment to be ready..."
+              SERVICE_URL=$(gcloud run services describe ${{ env.DOCKER_IMAGE_NAME }} --region=us-central1 --format="value(status.url)")
+              timeout 180 bash -c "until curl -f \${SERVICE_URL}/hello; do sleep 10; done"
+              ;;
+          esac
+          
+      # Step 12: Upload deployment logs
+      - name: Upload deployment logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: deployment-logs-${{ matrix.target }}
+          path: |
+            /tmp/deploy-*.log
+            ~/.kube/config
+          retention-days: 30
+          
+      # Step 13: Notify deployment status
+      - name: Notify deployment status
+        if: always()
+        run: |
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "✅ Deployment to ${{ matrix.target }} completed successfully"
+          else
+            echo "❌ Deployment to ${{ matrix.target }} failed"
+            exit 1
+          fi
+
+  # Job 4: Post-deployment validation and cleanup
+  post_deployment:
+    name: Post-Deployment Validation
+    runs-on: ubuntu-latest
+    needs: deploy
+    if: always()
+    
+    steps:
+      # Step 1: Checkout repository
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        
+      # Step 2: Download all deployment artifacts
+      - name: Download deployment artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./artifacts
+          
+      # Step 3: Generate deployment report
+      - name: Generate deployment report
+        run: |
+          echo "# Deployment Report" > deployment-report.md
+          echo "## Summary" >> deployment-report.md
+          echo "- Workflow: ${{ github.workflow }}" >> deployment-report.md
+          echo "- Run ID: ${{ github.run_id }}" >> deployment-report.md
+          echo "- Commit: ${{ github.sha }}" >> deployment-report.md
+          echo "- Branch: ${{ github.ref_name }}" >> deployment-report.md
+          echo "- Triggered by: ${{ github.event_name }}" >> deployment-report.md
+          echo "- Actor: ${{ github.actor }}" >> deployment-report.md
+          echo "- Timestamp: $(date -u)" >> deployment-report.md
+          echo "" >> deployment-report.md
+          echo "## Deployment Targets" >> deployment-report.md
+          echo "- Docker: ${{ contains(needs.deploy.result, 'success') && '✅' || '❌' }}" >> deployment-report.md
+          echo "- Docker Prod: ${{ contains(needs.deploy.result, 'success') && '✅' || '❌' }}" >> deployment-report.md
+          echo "- Kubernetes: ${{ contains(needs.deploy.result, 'success') && '✅' || '❌' }}" >> deployment-report.md
+          echo "- Heroku: ${{ contains(needs.deploy.result, 'success') && '✅' || '❌' }}" >> deployment-report.md
+          echo "- Vercel: ${{ contains(needs.deploy.result, 'success') && '✅' || '❌' }}" >> deployment-report.md
+          echo "- Cloud Run: ${{ contains(needs.deploy.result, 'success') && '✅' || '❌' }}" >> deployment-report.md
+          
+      # Step 4: Upload deployment report
+      - name: Upload deployment report
+        uses: actions/upload-artifact@v4
+        with:
+          name: deployment-report
+          path: deployment-report.md
+          retention-days: 90
+          
+      # Step 5: Clean up temporary resources
+      - name: Clean up temporary resources
+        if: always()
+        run: |
+          echo "Cleaning up temporary resources..."
+          # Clean up any temporary files or resources created during deployment
+          rm -rf ./artifacts
+          echo "Cleanup completed"
+
+# Workflow-level configuration
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Permissions for the workflow
+permissions:
+  contents: read
+  packages: write
+  actions: read
+  security-events: write
+  deployments: write

@@ -1,124 +1,283 @@
-version: "3.9"
+# Docker Compose configuration for Node.js Tutorial Backend
+# This configuration orchestrates the Node.js tutorial backend in a containerized environment,
+# providing reproducible, secure, and maintainable deployment of the Express.js v5.1.0 server.
+#
+# Features:
+# - Production-ready containerization with Alpine Linux base
+# - Environment variable injection via .env files
+# - Port mapping with override capability
+# - Health check integration for container orchestration
+# - Volume mounts for development (optional)
+# - Security best practices implementation
+# - Graceful shutdown handling
+# - Twelve-Factor App methodology compliance
+#
+# Usage:
+# - Development: docker-compose up --build
+# - Production: docker-compose -f docker-compose.yml up -d
+# - With overrides: docker-compose -f docker-compose.yml -f docker-compose.override.yml up
+#
+# Prerequisites:
+# - Docker Engine 20.10+ and Docker Compose v2.24+
+# - .env file (copy from .env.example and adjust values)
+# - Valid Dockerfile in the same directory
 
+version: '3.8'
+
+# ==============================================================================
+# SERVICES DEFINITION
+# ==============================================================================
 services:
-  # Main API service
-  api:
+  # Backend service - Node.js tutorial backend with Express.js v5.1.0
+  backend:
+    # Build configuration using local Dockerfile
     build:
       context: .
       dockerfile: Dockerfile
-    ports:
-      - "3000:3000"  # Main API port
-      - "8080:8080"  # WebSocket port
-      - "9229:9229"  # Debug port
+      target: production
+      # Build arguments for customization
+      args:
+        NODE_ENV: ${NODE_ENV:-production}
+        BUILD_DATE: ${BUILD_DATE:-$(date -u +'%Y-%m-%dT%H:%M:%SZ')}
+      # Build cache configuration for faster rebuilds
+      cache_from:
+        - node:22-alpine
+        - nodejs-tutorial-backend:latest
+      # Labels for build metadata
+      labels:
+        - "com.tutorial.component=backend"
+        - "com.tutorial.version=1.0.0"
+        - "com.tutorial.build-date=${BUILD_DATE:-$(date -u +'%Y-%m-%dT%H:%M:%SZ')}"
+
+    # Container image configuration
+    image: nodejs-tutorial-backend:latest
+    container_name: nodejs-tutorial-backend
+    hostname: tutorial-backend
+
+    # Environment variable configuration
+    # Load from .env file with fallback to .env.example
+    env_file:
+      - .env
     environment:
-      - NODE_ENV=development
-      - PORT=3000
-      - DEBUG=voice-agent:*
-      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/voice_agent
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - LOG_LEVEL=debug
-      - CORS_ORIGIN=http://localhost:3000
-      - JWT_SECRET=dev_secret
-      - API_RATE_LIMIT=100
-      - WEBSOCKET_HEARTBEAT_INTERVAL=30
-      - TZ=UTC
+      # Override specific environment variables for container deployment
+      - NODE_ENV=${NODE_ENV:-production}
+      - PORT=${PORT:-3000}
+      - REQUEST_TIMEOUT_MS=${REQUEST_TIMEOUT_MS:-30000}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      # Container-specific environment variables
+      - CONTAINER_NAME=nodejs-tutorial-backend
+      - DEPLOYMENT_ENV=docker-compose
+
+    # Port mapping - maps container port to host port
+    ports:
+      - "${HOST_PORT:-3000}:${PORT:-3000}"
+    
+    # Network configuration
+    networks:
+      - tutorial-network
+
+    # Volume mounts for development and configuration
     volumes:
-      - .:/app:delegated
-      - /app/node_modules
-      - ./logs:/app/logs
-      - ./uploads:/app/uploads
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+      # Optional: Mount source code for development hot-reload
+      # Uncomment for development environment only
+      # - ./:/usr/src/app:cached
+      # - /usr/src/app/node_modules  # Prevent overwriting node_modules
+      
+      # Optional: Mount logs directory for persistent logging
+      # - ./logs:/usr/src/app/logs:delegated
+      
+      # Optional: Mount custom configuration files
+      # - ./config/production.json:/usr/src/app/config/production.json:ro
+
+    # Restart policy for production resilience
+    restart: unless-stopped
+
+    # Resource limits for container management
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+      replicas: 1
+      restart_policy:
+        condition: unless-stopped
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+
+    # Health check configuration
+    # Uses the /hello endpoint to verify service availability
     healthcheck:
-      test: ["CMD", "node", "./healthcheck.js"]
+      test: ["CMD", "node", "-e", "
+        const http = require('http');
+        const options = {
+          hostname: 'localhost',
+          port: process.env.PORT || 3000,
+          path: '/hello',
+          method: 'GET',
+          timeout: 3000
+        };
+        const req = http.request(options, (res) => {
+          if (res.statusCode === 200) {
+            console.log('Health check passed');
+            process.exit(0);
+          } else {
+            console.error('Health check failed with status:', res.statusCode);
+            process.exit(1);
+          }
+        });
+        req.on('error', (err) => {
+          console.error('Health check error:', err.message);
+          process.exit(1);
+        });
+        req.on('timeout', () => {
+          console.error('Health check timeout');
+          process.exit(1);
+        });
+        req.end();
+      "]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 30s
-    command: ["npm", "run", "dev:watch"]
-    deploy:
-      resources:
-        limits:
-          cpus: "2"
-          memory: 2G
-    networks:
-      - backend
-    restart: unless-stopped
+      start_period: 15s
 
-  # PostgreSQL database service
-  postgres:
-    image: postgres:15-alpine
-    ports:
-      - "5432:5432"
-    environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=voice_agent
-      - PGDATA=/var/lib/postgresql/data/pgdata
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./init-scripts:/docker-entrypoint-initdb.d
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d voice_agent"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
-    deploy:
-      resources:
-        limits:
-          cpus: "1"
-          memory: 1G
-    networks:
-      - backend
-    restart: unless-stopped
+    # Logging configuration
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        labels: "com.tutorial.component"
 
-  # Redis cache service
-  redis:
-    image: redis:7.0-alpine
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-      - ./redis.conf:/usr/local/etc/redis/redis.conf
-    command: ["redis-server", "/usr/local/etc/redis/redis.conf"]
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
-    deploy:
-      resources:
-        limits:
-          cpus: "0.5"
-          memory: 512M
-    networks:
-      - backend
-    restart: unless-stopped
+    # Security configuration
+    security_opt:
+      - no-new-privileges:true
+    
+    # User configuration - run as non-root user
+    user: "1001:1001"  # nodejs user from Dockerfile
 
-volumes:
-  postgres_data:
-    driver: local
-    driver_opts:
-      type: none
-      device: ./data/postgres
-      o: bind
-  redis_data:
-    driver: local
-    driver_opts:
-      type: none
-      device: ./data/redis
-      o: bind
+    # Process management
+    init: true  # Use init process for proper signal handling
+    
+    # Dependency management
+    depends_on:
+      # Add dependencies here when extending with additional services
+      # - database
+      # - redis
+      # - message-queue
 
+    # Labels for container metadata and service discovery
+    labels:
+      - "com.tutorial.component=backend"
+      - "com.tutorial.service=nodejs-tutorial-backend"
+      - "com.tutorial.version=1.0.0"
+      - "com.tutorial.description=Node.js tutorial backend with Express.js v5.1.0"
+      - "com.tutorial.port=3000"
+      - "com.tutorial.health-check=/hello"
+      - "traefik.enable=true"  # For Traefik reverse proxy integration
+      - "traefik.http.routers.backend.rule=Host(`localhost`)"
+      - "traefik.http.services.backend.loadbalancer.server.port=3000"
+
+# ==============================================================================
+# NETWORK CONFIGURATION
+# ==============================================================================
 networks:
-  backend:
+  tutorial-network:
     driver: bridge
+    name: tutorial-network
+    # Network configuration for service isolation
+    driver_opts:
+      com.docker.network.bridge.name: tutorial-bridge
+      com.docker.network.driver.mtu: 1500
+    # IP address management
     ipam:
       driver: default
       config:
-        - subnet: 172.28.0.0/16
+        - subnet: 172.20.0.0/16
+          gateway: 172.20.0.1
+    # Network labels for metadata
+    labels:
+      - "com.tutorial.network=main"
+      - "com.tutorial.description=Main network for tutorial services"
+
+# ==============================================================================
+# VOLUME CONFIGURATION
+# ==============================================================================
+volumes:
+  # Optional: Named volumes for persistent data
+  # Uncomment and configure as needed for your deployment
+  
+  # tutorial-logs:
+  #   driver: local
+  #   driver_opts:
+  #     type: none
+  #     device: ./logs
+  #     o: bind
+  #   labels:
+  #     - "com.tutorial.volume=logs"
+  #     - "com.tutorial.description=Application logs storage"
+
+  # tutorial-config:
+  #   driver: local
+  #   labels:
+  #     - "com.tutorial.volume=config"
+  #     - "com.tutorial.description=Configuration files storage"
+
+# ==============================================================================
+# DEVELOPMENT OVERRIDE EXAMPLE
+# ==============================================================================
+# For development, create a docker-compose.override.yml file with:
+#
+# version: '3.8'
+# services:
+#   backend:
+#     environment:
+#       - NODE_ENV=development
+#       - LOG_LEVEL=debug
+#     volumes:
+#       - ./:/usr/src/app:cached
+#       - /usr/src/app/node_modules
+#     ports:
+#       - "3000:3000"
+#     command: ["npm", "run", "dev"]
+#
+# This enables hot-reload and development-specific configurations
+# without modifying the main docker-compose.yml file.
+
+# ==============================================================================
+# PRODUCTION DEPLOYMENT NOTES
+# ==============================================================================
+# 
+# 1. Environment Variables:
+#    - Copy .env.example to .env and configure production values
+#    - Set NODE_ENV=production for optimal performance
+#    - Adjust PORT, REQUEST_TIMEOUT_MS, and LOG_LEVEL as needed
+#
+# 2. Security Considerations:
+#    - Container runs as non-root user (nodejs:1001)
+#    - no-new-privileges security option enabled
+#    - Resource limits configured to prevent resource exhaustion
+#    - Health checks ensure service availability
+#
+# 3. Scaling:
+#    - Use docker-compose up --scale backend=3 for horizontal scaling
+#    - Configure load balancer (nginx, traefik) for traffic distribution
+#    - Monitor resource usage and adjust limits as needed
+#
+# 4. Monitoring:
+#    - Health check endpoint: http://localhost:3000/hello
+#    - Container logs: docker-compose logs -f backend
+#    - Resource monitoring: docker stats nodejs-tutorial-backend
+#
+# 5. Backup and Recovery:
+#    - Application is stateless, no persistent data to backup
+#    - Container images should be stored in a registry for deployment
+#    - Configuration files (.env) should be version controlled separately
+#
+# 6. Integration with Orchestration:
+#    - Ready for Kubernetes deployment with minimal modifications
+#    - Supports Docker Swarm for cluster deployments
+#    - Compatible with cloud container platforms (AWS ECS, GCP Cloud Run)

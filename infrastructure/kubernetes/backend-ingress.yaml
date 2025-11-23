@@ -1,0 +1,66 @@
+# Kubernetes Ingress resource for the Node.js tutorial application
+# Routes external HTTP traffic to the backend service /hello endpoint
+# Part of the educational Node.js HTTP server demonstration
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: backend-ingress
+  namespace: default
+  annotations:
+    # nginx-ingress-controller configuration
+    # Rewrite target to handle path routing correctly
+    nginx.ingress.kubernetes.io/rewrite-target: /$1
+    # Disable SSL redirect for HTTP-only tutorial scope
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    # Basic ingress class annotation for nginx controller
+    kubernetes.io/ingress.class: nginx
+    # Enable CORS for educational purposes
+    nginx.ingress.kubernetes.io/enable-cors: "true"
+    # Set connection timeout for educational responsiveness
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
+  labels:
+    app: backend-tutorial
+    component: ingress
+    tier: networking
+    environment: tutorial
+spec:
+  rules:
+  # Rule for routing HTTP traffic without specific host (accepts all hosts)
+  - host: ""
+    http:
+      paths:
+      # Route for the /hello endpoint - main educational endpoint
+      - path: /hello
+        pathType: Prefix
+        backend:
+          service:
+            name: backend-service
+            port:
+              number: 3000
+      # Route for health check endpoint (supporting basic monitoring)
+      - path: /health
+        pathType: Prefix
+        backend:
+          service:
+            name: backend-service
+            port:
+              number: 3000
+      # Catch-all route for any other paths to backend service
+      # This allows the Express.js app to handle 404 responses appropriately
+      - path: /(.*)
+        pathType: Prefix
+        backend:
+          service:
+            name: backend-service
+            port:
+              number: 3000
+  # Default backend for handling requests that don't match any rules
+  # Points to the same backend service for educational simplicity
+  defaultBackend:
+    service:
+      name: backend-service
+      port:
+        number: 3000

@@ -1,0 +1,85 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "src/backend/app.js",
+      "use": "@vercel/node",
+      "config": {
+        "includeFiles": [
+          "src/backend/**"
+        ]
+      }
+    }
+  ],
+  "routes": [
+    {
+      "src": "/hello",
+      "dest": "src/backend/app.js"
+    },
+    {
+      "src": "/health",
+      "dest": "src/backend/app.js"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "src/backend/app.js"
+    }
+  ],
+  "env": {
+    "PORT": "3000",
+    "NODE_ENV": "production",
+    "REQUEST_TIMEOUT_MS": "30000"
+  },
+  "functions": {
+    "src/backend/app.js": {
+      "memory": 512,
+      "maxDuration": 10
+    }
+  },
+  "installCommand": "cd src/backend && npm install",
+  "buildCommand": "cd src/backend && npm run health",
+  "outputDirectory": "src/backend",
+  "regions": ["iad1"],
+  "framework": null,
+  "public": false,
+  "rewrites": [
+    {
+      "source": "/hello",
+      "destination": "src/backend/app.js"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        },
+        {
+          "key": "X-XSS-Protection",
+          "value": "1; mode=block"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        },
+        {
+          "key": "Strict-Transport-Security",
+          "value": "max-age=31536000; includeSubDomains"
+        }
+      ]
+    }
+  ],
+  "github": {
+    "autoAlias": false,
+    "autoJobCancelation": true,
+    "enabled": true
+  },
+  "cleanUrls": true,
+  "trailingSlash": false
+}

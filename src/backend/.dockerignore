@@ -1,0 +1,57 @@
+# Node.js dependencies - exclude local node_modules to use fresh install in container
+node_modules
+
+# npm and yarn artifacts - prevent development artifacts from entering production
+npm-debug.log
+yarn-error.log
+
+# Test coverage and build artifacts - keep production images clean
+coverage
+dist
+build
+
+# Environment and configuration files - prevent sensitive data leakage
+.env
+.env.*
+
+# Operating system files - reduce image size and security surface
+.DS_Store
+
+# Local development files - exclude development-specific configurations
+*.local
+*.log
+
+# Testing files and directories - prevent test code in production images
+test
+__tests__
+*.test.js
+*.spec.js
+
+# Documentation - reduce image size while maintaining security
+docs
+*.md
+
+# Version control and IDE files - security and size optimization
+.git
+.github
+.vscode
+.idea
+
+# Temporary and backup files - prevent clutter and potential security risks
+*.swp
+*.swo
+*.bak
+*.tmp
+
+# Docker files - prevent recursive Docker builds and configuration conflicts
+Dockerfile
+docker-compose.yml
+
+# Development scripts - exclude build and development automation
+scripts
+
+# Code quality and formatting configurations - development-only tools
+.eslintrc.js
+.prettierrc
+.nvmrc
+.editorconfig

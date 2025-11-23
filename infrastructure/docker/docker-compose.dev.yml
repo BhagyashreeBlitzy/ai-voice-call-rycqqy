@@ -1,0 +1,285 @@
+# ==============================================================================
+# Docker Compose Development Configuration
+# Node.js Tutorial Backend - Development Environment
+# ==============================================================================
+#
+# This Docker Compose configuration orchestrates the Node.js tutorial backend
+# in a development-focused containerized environment. It enables hot-reload,
+# live code mounting, and rapid feedback for local development workflows.
+#
+# Features:
+# - Builds from local Dockerfile with development optimizations
+# - Hot-reload via source code volume mounting
+# - Environment variable injection from .env file
+# - Health check monitoring for development observability
+# - Production-ready security practices adapted for development
+# - Twelve-Factor App methodology compliance
+# - Compatible with Docker Compose v2.24+
+#
+# Usage:
+#   docker-compose -f docker-compose.dev.yml up --build
+#   docker-compose -f docker-compose.dev.yml up -d
+#   docker-compose -f docker-compose.dev.yml down
+#   docker-compose -f docker-compose.dev.yml logs -f backend
+#
+# Prerequisites:
+#   - Docker Engine 20.10+
+#   - Docker Compose v2.24+
+#   - .env file (copy from .env.example and adjust as needed)
+#   - Source code in ../../src/backend/
+#
+# ==============================================================================
+
+version: '3.8'
+
+# ==============================================================================
+# SERVICES CONFIGURATION
+# ==============================================================================
+services:
+  # Backend Service - Node.js Tutorial Server with Express.js v5.1.0
+  backend:
+    # Build configuration
+    build:
+      # Build context relative to this docker-compose.dev.yml file
+      context: ../../src/backend
+      dockerfile: Dockerfile
+      # Use multi-stage build with development target if available
+      target: production
+      args:
+        - NODE_ENV=development
+    
+    # Container image and naming
+    image: nodejs-tutorial-backend:dev
+    container_name: nodejs-tutorial-backend-dev
+    
+    # Working directory inside the container
+    working_dir: /usr/src/app
+    
+    # Environment variable configuration
+    # Loads from .env file if present, with development-specific overrides
+    env_file:
+      - .env
+    environment:
+      # Development-specific environment variables
+      - NODE_ENV=development
+      - PORT=3000
+      - REQUEST_TIMEOUT_MS=30000
+      - LOG_LEVEL=info
+      # Enable development features
+      - DEBUG=*
+      - NODE_OPTIONS=--trace-warnings --experimental-specifier-resolution=node
+    
+    # Port mapping - container port 3000 to host port 3000
+    # Can be overridden by setting HOST_PORT environment variable
+    ports:
+      - "${HOST_PORT:-3000}:${CONTAINER_PORT:-3000}"
+    
+    # Volume mounts for development hot-reload
+    volumes:
+      # Mount source code for live development changes
+      - ../../src/backend:/usr/src/app
+      # Preserve node_modules in container to avoid conflicts
+      - /usr/src/app/node_modules
+      # Mount package files separately for better performance
+      - ../../src/backend/package.json:/usr/src/app/package.json:ro
+      - ../../src/backend/package-lock.json:/usr/src/app/package-lock.json:ro
+    
+    # Development server command using nodemon for auto-restart
+    command: ["npm", "run", "dev"]
+    
+    # Container restart policy for development resilience
+    restart: unless-stopped
+    
+    # Health check configuration for development monitoring
+    healthcheck:
+      test: 
+        [
+          "CMD-SHELL", 
+          "node -e \"
+            const http = require('http');
+            const options = {
+              hostname: 'localhost',
+              port: process.env.PORT || 3000,
+              path: '/hello',
+              timeout: 3000
+            };
+            const req = http.request(options, (res) => {
+              if (res.statusCode === 200) {
+                console.log('Health check: OK');
+                process.exit(0);
+              } else {
+                console.log('Health check: FAIL - Status:', res.statusCode);
+                process.exit(1);
+              }
+            });
+            req.on('error', (err) => {
+              console.log('Health check: ERROR -', err.message);
+              process.exit(1);
+            });
+            req.on('timeout', () => {
+              console.log('Health check: TIMEOUT');
+              process.exit(1);
+            });
+            req.end();
+          \""
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    
+    # Security configuration
+    security_opt:
+      - no-new-privileges:true
+    
+    # Process limits for development safety
+    ulimits:
+      nofile:
+        soft: 1024
+        hard: 1024
+    
+    # Memory and CPU limits for development environments
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '1.0'
+        reservations:
+          memory: 256M
+          cpus: '0.5'
+    
+    # Dependencies - ensure service starts after any dependent services
+    depends_on: []
+    
+    # Network configuration
+    networks:
+      - nodejs-tutorial-dev
+    
+    # Development-specific labels for container identification
+    labels:
+      - "com.nodejs-tutorial.environment=development"
+      - "com.nodejs-tutorial.service=backend"
+      - "com.nodejs-tutorial.version=1.0.0"
+      - "com.nodejs-tutorial.description=Node.js Tutorial Backend Development Container"
+
+# ==============================================================================
+# NETWORKS CONFIGURATION
+# ==============================================================================
+networks:
+  nodejs-tutorial-dev:
+    driver: bridge
+    name: nodejs-tutorial-dev-network
+    driver_opts:
+      # Enable IPv6 support for modern networking
+      com.docker.network.enable_ipv6: "false"
+      # Set MTU for compatibility with various network environments
+      com.docker.network.driver.mtu: "1500"
+    # Network configuration for development isolation
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.20.0.0/16
+          gateway: 172.20.0.1
+    
+    # Network labels for management and identification
+    labels:
+      - "com.nodejs-tutorial.environment=development"
+      - "com.nodejs-tutorial.network=backend"
+
+# ==============================================================================
+# VOLUMES CONFIGURATION
+# ==============================================================================
+volumes:
+  # Node modules cache volume for better performance
+  nodejs-tutorial-node-modules:
+    driver: local
+    name: nodejs-tutorial-dev-node-modules
+    labels:
+      - "com.nodejs-tutorial.environment=development"
+      - "com.nodejs-tutorial.volume=node-modules-cache"
+
+# ==============================================================================
+# DEVELOPMENT WORKFLOW COMMANDS
+# ==============================================================================
+#
+# Start development environment:
+# docker-compose -f docker-compose.dev.yml up --build
+#
+# Start in detached mode:
+# docker-compose -f docker-compose.dev.yml up -d --build
+#
+# View logs in real-time:
+# docker-compose -f docker-compose.dev.yml logs -f backend
+#
+# Execute commands in running container:
+# docker-compose -f docker-compose.dev.yml exec backend npm test
+# docker-compose -f docker-compose.dev.yml exec backend bash
+#
+# Stop development environment:
+# docker-compose -f docker-compose.dev.yml down
+#
+# Stop and remove volumes:
+# docker-compose -f docker-compose.dev.yml down -v
+#
+# Rebuild without cache:
+# docker-compose -f docker-compose.dev.yml build --no-cache backend
+#
+# Scale backend service (for load testing):
+# docker-compose -f docker-compose.dev.yml up -d --scale backend=3
+#
+# Check service health:
+# docker-compose -f docker-compose.dev.yml ps
+# docker-compose -f docker-compose.dev.yml exec backend curl -f http://localhost:3000/hello
+#
+# View container resource usage:
+# docker-compose -f docker-compose.dev.yml exec backend top
+# docker stats nodejs-tutorial-backend-dev
+#
+# ==============================================================================
+# ENVIRONMENT VARIABLE OVERRIDES
+# ==============================================================================
+#
+# Create .env file from template:
+# cp ../../src/backend/.env.example .env
+#
+# Override default ports:
+# echo "HOST_PORT=4000" >> .env
+# echo "CONTAINER_PORT=3000" >> .env
+#
+# Override development settings:
+# echo "NODE_ENV=development" >> .env
+# echo "LOG_LEVEL=debug" >> .env
+# echo "REQUEST_TIMEOUT_MS=60000" >> .env
+#
+# Enable Node.js debugging:
+# echo "NODE_OPTIONS=--inspect=0.0.0.0:9229" >> .env
+#
+# ==============================================================================
+# DEVELOPMENT BEST PRACTICES
+# ==============================================================================
+#
+# 1. Always use .env file for environment-specific configuration
+# 2. Mount source code as volume for hot-reload development
+# 3. Use --build flag to ensure latest changes are included
+# 4. Monitor logs with -f flag for real-time debugging
+# 5. Use health checks to verify service readiness
+# 6. Set appropriate resource limits for development environments
+# 7. Use container names for easy identification and management
+# 8. Keep development and production configurations separate
+# 9. Test environment variable overrides before deployment
+# 10. Use labels for container organization and management
+#
+# ==============================================================================
+# SECURITY CONSIDERATIONS FOR DEVELOPMENT
+# ==============================================================================
+#
+# 1. Source code is mounted as volume - DO NOT use in production
+# 2. Debug ports may be exposed - ensure firewall protection
+# 3. Development containers run with elevated logging
+# 4. Resource limits prevent development environment abuse
+# 5. no-new-privileges security option prevents privilege escalation
+# 6. Isolated network prevents interference with other services
+# 7. Health checks provide monitoring and alerting capabilities
+# 8. Regular image updates ensure security patch availability
+#
+# ==============================================================================

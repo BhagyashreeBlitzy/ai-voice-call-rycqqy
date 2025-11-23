@@ -1,0 +1,435 @@
+# Cloud-native deployment manifest for Node.js Tutorial Backend
+# Compatible with Platform-as-a-Service (PaaS) providers and managed container platforms
+# including Google Cloud Run, AWS App Runner, Azure Web Apps, and DigitalOcean App Platform
+#
+# This manifest defines the deployment configuration for the Express.js v5.1.0 backend
+# application with production-ready settings, security best practices, and cloud-native
+# features including health checks, resource management, and environment configuration.
+#
+# Deploy with:
+# - Google Cloud Run: gcloud run deploy --source .
+# - AWS App Runner: Configure through AWS Console or CLI using this manifest
+# - Azure Web Apps: az webapp up --name nodejs-tutorial-backend
+# - DigitalOcean App Platform: doctl apps create --spec app.yaml
+#
+# Prerequisites:
+# - Container image: nodejs-tutorial-backend:latest (built from ../src/backend/Dockerfile)
+# - Environment variables configured for target deployment environment
+# - Health check endpoint /hello accessible and responding with 200 OK
+
+# ==============================================================================
+# SERVICE METADATA AND CONFIGURATION
+# ==============================================================================
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: nodejs-tutorial-backend
+  labels:
+    app: nodejs-tutorial-backend
+    version: "1.0.0"
+    component: backend
+    tier: application
+    framework: express
+    language: nodejs
+    environment: production
+    purpose: educational-tutorial
+  annotations:
+    # Cloud platform compatibility annotations
+    cloud.google.com/run: "true"
+    cloud.aws.com/apprunner: "true"
+    cloud.azure.com/webapp: "true"
+    cloud.digitalocean.com/app-platform: "true"
+    # Deployment metadata
+    deployment.tutorial/description: "Node.js tutorial backend with Express.js v5.1.0 and /hello endpoint"
+    deployment.tutorial/documentation: "https://github.com/tutorial/nodejs-tutorial-backend#readme"
+    deployment.tutorial/repository: "https://github.com/tutorial/nodejs-tutorial-backend.git"
+    deployment.tutorial/license: "MIT"
+    # Security and compliance annotations
+    security.tutorial/scan-level: "basic"
+    security.tutorial/user-mode: "non-root"
+    security.tutorial/image-base: "node:22-alpine"
+    # Monitoring and observability annotations
+    monitoring.tutorial/health-endpoint: "/hello"
+    monitoring.tutorial/metrics-enabled: "false"
+    monitoring.tutorial/logging-level: "info"
+
+spec:
+  # ==============================================================================
+  # CONTAINER CONFIGURATION
+  # ==============================================================================
+  containers:
+    - name: nodejs-tutorial-backend
+      # Container image built from ../src/backend/Dockerfile
+      # Update this to use your container registry URL for production deployments
+      # Examples:
+      # - gcr.io/PROJECT_ID/nodejs-tutorial-backend:latest
+      # - your-registry.amazonaws.com/nodejs-tutorial-backend:latest
+      # - your-registry.azurecr.io/nodejs-tutorial-backend:latest
+      image: nodejs-tutorial-backend:latest
+      
+      # Pull policy for container image updates
+      imagePullPolicy: Always
+      
+      # Container port configuration
+      ports:
+        - name: http
+          containerPort: 3000
+          protocol: TCP
+      
+      # ==============================================================================
+      # ENVIRONMENT VARIABLE CONFIGURATION
+      # ==============================================================================
+      env:
+        # Node.js environment - production mode enables Express.js optimizations
+        # - Caches view templates and CSS files
+        # - Reduces error verbosity
+        # - Optimizes performance for production workloads
+        - name: NODE_ENV
+          value: "production"
+        
+        # HTTP server port configuration
+        # Can be overridden by cloud platforms that assign dynamic ports
+        - name: PORT
+          value: "3000"
+        
+        # Request timeout in milliseconds
+        # Prevents hanging requests and ensures responsive server behavior
+        - name: REQUEST_TIMEOUT_MS
+          value: "30000"
+        
+        # Logging configuration for production environments
+        # Reduces log verbosity while maintaining essential information
+        - name: LOG_LEVEL
+          value: "info"
+        
+        # Express.js trust proxy configuration for cloud deployments
+        # Required for proper IP address resolution behind load balancers
+        - name: TRUST_PROXY
+          value: "true"
+        
+        # Security headers and CORS configuration
+        # Enables security best practices for cloud deployments
+        - name: ENABLE_CORS
+          value: "true"
+        
+        # Health check configuration
+        # Enables the /hello endpoint for container orchestration health checks
+        - name: HEALTH_CHECK_ENABLED
+          value: "true"
+
+      # ==============================================================================
+      # HEALTH CHECK CONFIGURATION
+      # ==============================================================================
+      
+      # Liveness probe - determines if the container is running
+      # If this fails, the container will be restarted
+      livenessProbe:
+        httpGet:
+          path: /hello
+          port: 3000
+          scheme: HTTP
+        initialDelaySeconds: 10
+        periodSeconds: 30
+        timeoutSeconds: 5
+        failureThreshold: 3
+        successThreshold: 1
+      
+      # Readiness probe - determines if the container is ready to receive traffic
+      # If this fails, the container will be removed from service discovery
+      readinessProbe:
+        httpGet:
+          path: /hello
+          port: 3000
+          scheme: HTTP
+        initialDelaySeconds: 5
+        periodSeconds: 10
+        timeoutSeconds: 3
+        failureThreshold: 3
+        successThreshold: 1
+      
+      # Startup probe - provides additional time for container startup
+      # Useful for applications that need time to initialize
+      startupProbe:
+        httpGet:
+          path: /hello
+          port: 3000
+          scheme: HTTP
+        initialDelaySeconds: 3
+        periodSeconds: 5
+        timeoutSeconds: 2
+        failureThreshold: 6
+        successThreshold: 1
+
+      # ==============================================================================
+      # RESOURCE MANAGEMENT
+      # ==============================================================================
+      
+      # Resource requests and limits for predictable performance
+      # These values are optimized for the lightweight Node.js tutorial application
+      resources:
+        # Resource requests - guaranteed resources allocated to the container
+        requests:
+          cpu: "100m"        # 0.1 CPU cores
+          memory: "128Mi"    # 128 megabytes RAM
+          ephemeral-storage: "512Mi"  # 512 megabytes temporary storage
+        
+        # Resource limits - maximum resources the container can consume
+        limits:
+          cpu: "500m"        # 0.5 CPU cores maximum
+          memory: "256Mi"    # 256 megabytes RAM maximum
+          ephemeral-storage: "1Gi"    # 1 gigabyte temporary storage maximum
+
+      # ==============================================================================
+      # SECURITY CONFIGURATION
+      # ==============================================================================
+      
+      # Security context for container execution
+      securityContext:
+        # Run as non-root user for security (matches Dockerfile user configuration)
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+        
+        # File system permissions
+        readOnlyRootFilesystem: false  # Express.js may need write access for temporary files
+        allowPrivilegeEscalation: false
+        
+        # Capability restrictions
+        capabilities:
+          drop:
+            - ALL
+          add:
+            - NET_BIND_SERVICE  # Required for binding to port 3000
+
+# ==============================================================================
+# CLOUD PLATFORM SPECIFIC CONFIGURATIONS
+# ==============================================================================
+
+# Google Cloud Run specific configuration
+---
+apiVersion: run.googleapis.com/v1
+kind: Service
+metadata:
+  name: nodejs-tutorial-backend
+  annotations:
+    run.googleapis.com/ingress: all
+    run.googleapis.com/execution-environment: gen2
+    run.googleapis.com/cpu-throttling: "false"
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/maxScale: "10"
+        autoscaling.knative.dev/minScale: "0"
+        run.googleapis.com/execution-environment: gen2
+        run.googleapis.com/memory: "256Mi"
+        run.googleapis.com/cpu: "1"
+    spec:
+      containerConcurrency: 100
+      timeoutSeconds: 300
+      containers:
+      - image: nodejs-tutorial-backend:latest
+        ports:
+        - containerPort: 3000
+        env:
+        - name: NODE_ENV
+          value: production
+        - name: PORT
+          value: "3000"
+        resources:
+          limits:
+            cpu: 500m
+            memory: 256Mi
+
+# ==============================================================================
+# AWS APP RUNNER CONFIGURATION
+# ==============================================================================
+
+# AWS App Runner apprunner.yaml (separate file typically)
+---
+version: 1.0
+runtime: docker
+build:
+  commands:
+    build:
+      - echo "Building container image..."
+      - docker build -t nodejs-tutorial-backend .
+run:
+  runtime-version: latest
+  command: node app.js
+  network:
+    port: 3000
+    env-vars:
+      - name: NODE_ENV
+        value: production
+      - name: PORT
+        value: "3000"
+      - name: REQUEST_TIMEOUT_MS
+        value: "30000"
+  env-vars:
+    - name: NODE_ENV
+      value: production
+    - name: PORT
+      value: "3000"
+    - name: REQUEST_TIMEOUT_MS
+      value: "30000"
+
+# ==============================================================================
+# AZURE WEB APPS CONFIGURATION
+# ==============================================================================
+
+# Azure Web Apps configuration (typically in azure-pipelines.yml or Portal)
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: azure-webapp-config
+data:
+  WEBSITES_ENABLE_APP_SERVICE_STORAGE: "false"
+  WEBSITES_PORT: "3000"
+  NODE_ENV: "production"
+  REQUEST_TIMEOUT_MS: "30000"
+  SCM_DO_BUILD_DURING_DEPLOYMENT: "true"
+
+# ==============================================================================
+# DIGITALOCEAN APP PLATFORM CONFIGURATION
+# ==============================================================================
+
+# DigitalOcean App Platform app spec
+---
+name: nodejs-tutorial-backend
+services:
+- name: backend
+  source_dir: /
+  github:
+    repo: tutorial/nodejs-tutorial-backend
+    branch: main
+  build_command: docker build -t nodejs-tutorial-backend .
+  run_command: node app.js
+  environment_slug: node-js
+  instance_count: 1
+  instance_size_slug: basic-xxs
+  routes:
+  - path: /
+  health_check:
+    http_path: /hello
+    initial_delay_seconds: 10
+    period_seconds: 30
+    timeout_seconds: 5
+    failure_threshold: 3
+    success_threshold: 1
+  envs:
+  - key: NODE_ENV
+    value: production
+  - key: PORT
+    value: "3000"
+  - key: REQUEST_TIMEOUT_MS
+    value: "30000"
+
+# ==============================================================================
+# DEPLOYMENT INSTRUCTIONS AND USAGE EXAMPLES
+# ==============================================================================
+
+# To deploy this application:
+#
+# 1. Build and push the container image:
+#    docker build -t nodejs-tutorial-backend .
+#    docker tag nodejs-tutorial-backend:latest your-registry/nodejs-tutorial-backend:latest
+#    docker push your-registry/nodejs-tutorial-backend:latest
+#
+# 2. Update the image reference in this manifest to point to your registry
+#
+# 3. Deploy using your preferred cloud platform:
+#
+#    Google Cloud Run:
+#    gcloud run deploy nodejs-tutorial-backend \
+#      --image your-registry/nodejs-tutorial-backend:latest \
+#      --platform managed \
+#      --region us-central1 \
+#      --allow-unauthenticated
+#
+#    AWS App Runner:
+#    aws apprunner create-service \
+#      --service-name nodejs-tutorial-backend \
+#      --source-configuration file://apprunner.yaml
+#
+#    Azure Web Apps:
+#    az webapp create \
+#      --resource-group tutorial-rg \
+#      --plan tutorial-plan \
+#      --name nodejs-tutorial-backend \
+#      --deployment-container-image-name your-registry/nodejs-tutorial-backend:latest
+#
+#    DigitalOcean App Platform:
+#    doctl apps create --spec app.yaml
+#
+# 4. Verify deployment:
+#    curl https://your-app-url/hello
+#    # Expected response: "Hello world"
+#
+# 5. Monitor application:
+#    - Check health endpoint: /hello
+#    - Monitor logs through cloud platform console
+#    - Set up alerts for health check failures
+#
+# Environment variable overrides:
+# - Set NODE_ENV=development for development deployments
+# - Adjust PORT if the cloud platform requires a different port
+# - Modify REQUEST_TIMEOUT_MS based on expected response times
+# - Configure LOG_LEVEL for appropriate logging verbosity
+#
+# Security considerations:
+# - The application runs as a non-root user (uid 1001)
+# - Container uses minimal Alpine-based Node.js image
+# - Only required port (3000) is exposed
+# - Environment variables are used for all configuration
+# - Health checks ensure only healthy containers receive traffic
+#
+# Performance optimization:
+# - Resource limits prevent resource contention
+# - Health checks enable fast failure detection
+# - Container image is optimized for size and startup time
+# - Express.js production mode enables performance optimizations
+#
+# Scaling configuration:
+# - Adjust autoscaling parameters based on expected traffic
+# - Monitor CPU and memory usage to optimize resource allocation
+# - Configure concurrent request limits based on application capacity
+# - Set up load balancing for high-availability deployments
+
+# ==============================================================================
+# TROUBLESHOOTING GUIDE
+# ==============================================================================
+
+# Common issues and solutions:
+#
+# 1. Container fails to start:
+#    - Check that the image exists and is accessible
+#    - Verify environment variables are properly set
+#    - Check container logs for startup errors
+#    - Ensure PORT matches the exposed container port
+#
+# 2. Health checks failing:
+#    - Verify /hello endpoint is accessible
+#    - Check that the server is listening on the correct port
+#    - Ensure health check timeouts are appropriate
+#    - Monitor application logs for errors
+#
+# 3. Performance issues:
+#    - Increase resource limits if CPU/memory constrained
+#    - Adjust REQUEST_TIMEOUT_MS for slower operations
+#    - Monitor application metrics and logs
+#    - Consider increasing instance count for higher traffic
+#
+# 4. Network connectivity issues:
+#    - Verify firewall rules allow traffic on port 3000
+#    - Check load balancer configuration
+#    - Ensure ingress/routing rules are properly configured
+#    - Test connectivity from within the cloud platform
+#
+# 5. Image pull failures:
+#    - Verify container registry credentials
+#    - Check image tag and registry URL
+#    - Ensure image is publicly accessible or proper auth is configured
+#    - Try pulling the image manually to verify accessibility

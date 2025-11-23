@@ -1,0 +1,39 @@
+# Heroku deployment configuration for Node.js tutorial backend application
+# Compatible with Node.js v22 LTS and Express.js 5.1.0
+# This configuration enables simple, reproducible deployment for educational purposes
+
+# Specify the Heroku stack version
+stack: heroku-22
+
+# Build configuration
+build:
+  # Use the official Heroku Node.js buildpack
+  buildpacks:
+    - url: heroku/nodejs
+
+# Runtime configuration
+run:
+  # Define the web process command
+  web: npm start
+
+# Environment variables for production deployment
+env:
+  # Set Node.js environment to production mode
+  NODE_ENV: production
+  # Configure npm to skip development dependencies
+  NPM_CONFIG_PRODUCTION: true
+  # Set default port for the application
+  PORT: 3000
+
+# Formation configuration for dyno scaling
+formation:
+  web:
+    # Number of web dynos to run
+    quantity: 1
+    # Dyno size (free tier for educational purposes)
+    size: free
+
+# Post-deployment scripts
+scripts:
+  # Run tests after successful deployment
+  postdeploy: npm run test

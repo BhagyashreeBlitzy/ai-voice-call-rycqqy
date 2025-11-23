@@ -1,0 +1,58 @@
+# Kubernetes ConfigMap for Node.js Tutorial Backend Configuration
+# This ConfigMap provides environment variables for the Express.js backend server
+# enabling externalized configuration following Twelve-Factor App principles
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-config
+  namespace: default
+  labels:
+    app: tutorial-backend
+    component: configuration
+    version: v1.0.0
+  annotations:
+    description: "Environment configuration for Node.js tutorial backend server"
+    config.kubernetes.io/last-updated: "2024-01-15T10:00:00Z"
+
+# Configuration data for the backend server
+# All values are strings as required by Kubernetes ConfigMap specification
+# These values match the contract defined in src/backend/config/server.js
+data:
+  # HTTP server port configuration
+  # Must be between 1024-65535 as validated by getServerConfig()
+  # Production value for stable deployment
+  PORT: "3000"
+  
+  # Node.js environment setting
+  # Controls Express.js behavior, logging verbosity, and error handling
+  # Valid values: development, production, test (as per VALID_ENVS in server.js)
+  # Set to production for containerized deployment
+  NODE_ENV: "production"
+  
+  # HTTP request timeout in milliseconds
+  # Prevents hanging connections and resource exhaustion
+  # Must be a positive integer as validated by server configuration
+  # 30 seconds provides balanced user experience and resource protection
+  REQUEST_TIMEOUT_MS: "30000"
+
+---
+# Optional: ConfigMap for logging configuration (if needed for future extension)
+# Currently the backend uses basic console logging but this supports future enhancement
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-logging-config
+  namespace: default
+  labels:
+    app: tutorial-backend
+    component: logging
+    version: v1.0.0
+  annotations:
+    description: "Logging configuration for Node.js tutorial backend (future use)"
+    
+data:
+  # Log level for application logger
+  # Controls output verbosity: info, warn, error
+  # info level provides good balance for production monitoring
+  LOG_LEVEL: "info"

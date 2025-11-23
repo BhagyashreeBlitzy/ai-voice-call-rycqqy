@@ -1,0 +1,221 @@
+# Production Docker Compose Configuration for Node.js Tutorial Backend
+# 
+# This file orchestrates the backend service for production deployment using Docker Compose v3.8.
+# It builds and runs the Node.js tutorial backend with Express.js v5.1.0 in a secure, 
+# production-ready container environment.
+#
+# Key Features:
+# - Production-optimized multi-stage Docker build
+# - Security hardening with non-root user execution
+# - Environment variable configuration support
+# - Health check monitoring for container orchestration
+# - Graceful shutdown and restart policies
+# - No development volumes (production security)
+# - Minimal resource footprint with Alpine Linux
+#
+# Usage:
+#   docker-compose -f docker-compose.prod.yml up --build
+#   docker-compose -f docker-compose.prod.yml down
+#
+# Prerequisites:
+#   - Copy .env.example to .env and configure production values
+#   - Ensure Dockerfile exists in ../../src/backend/
+#   - Verify all source files are present in the backend directory
+
+version: '3.8'
+
+services:
+  # Backend Service - Node.js Tutorial Application
+  backend:
+    # Build Configuration
+    build:
+      # Build context points to the backend source directory
+      context: ../../src/backend
+      dockerfile: Dockerfile
+      # Build arguments for production optimizations
+      args:
+        NODE_ENV: production
+        BUILD_TARGET: production
+    
+    # Container Image and Naming
+    image: nodejs-tutorial-backend:1.0.0
+    container_name: nodejs-tutorial-backend
+    
+    # Environment Configuration
+    # Load environment variables from .env file
+    env_file:
+      - .env
+    
+    # Override critical environment variables for production
+    environment:
+      # Force production mode for Express.js optimizations
+      - NODE_ENV=production
+      # Default port configuration (can be overridden via .env)
+      - PORT=3000
+      # Production-appropriate request timeout
+      - REQUEST_TIMEOUT_MS=30000
+      # Production logging level
+      - LOG_LEVEL=info
+      # Container-specific configurations
+      - CONTAINER_NAME=nodejs-tutorial-backend
+      - DEPLOYMENT_ENV=production
+    
+    # Port Mapping
+    ports:
+      # Map container port 3000 to host port 3000
+      # Format: "host_port:container_port"
+      - "3000:3000"
+    
+    # Network Configuration
+    networks:
+      - backend-network
+    
+    # Restart Policy
+    # 'unless-stopped' ensures container restarts automatically except when explicitly stopped
+    restart: unless-stopped
+    
+    # Resource Limits (Production Best Practice)
+    deploy:
+      resources:
+        limits:
+          # Limit CPU usage to prevent resource exhaustion
+          cpus: '0.5'
+          # Limit memory usage (sufficient for tutorial application)
+          memory: 256M
+        reservations:
+          # Reserve minimum resources for consistent performance
+          cpus: '0.1'
+          memory: 64M
+    
+    # Health Check Configuration
+    # Monitors the /hello endpoint to ensure application is responsive
+    healthcheck:
+      # Use curl to test the application endpoint
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/hello"]
+      # Check health every 30 seconds
+      interval: 30s
+      # Timeout for each health check
+      timeout: 10s
+      # Number of consecutive failures before marking as unhealthy
+      retries: 3
+      # Wait time before starting health checks (allow startup)
+      start_period: 20s
+    
+    # Security Configuration
+    security_opt:
+      # Disable new privileges to prevent privilege escalation
+      - no-new-privileges:true
+    
+    # Read-only Root Filesystem (Enhanced Security)
+    read_only: true
+    
+    # Temporary filesystems for runtime needs
+    tmpfs:
+      # Allow temporary file creation in /tmp
+      - /tmp:rw,noexec,nosuid,size=50m
+      # Allow Node.js to write temporary files
+      - /usr/src/app/tmp:rw,noexec,nosuid,size=10m
+    
+    # User Configuration (Run as non-root user for security)
+    # This is handled by the Dockerfile, but explicitly documented here
+    user: "1001:1001"
+    
+    # Logging Configuration
+    logging:
+      driver: json-file
+      options:
+        # Limit log file size to prevent disk space issues
+        max-size: "10m"
+        # Keep last 3 log files for debugging
+        max-file: "3"
+        # Add labels for log management
+        labels: "service=nodejs-tutorial-backend,environment=production"
+    
+    # Labels for Container Management
+    labels:
+      # Service identification labels
+      - "com.tutorial.service=nodejs-tutorial-backend"
+      - "com.tutorial.version=1.0.0"
+      - "com.tutorial.environment=production"
+      # Health check labels
+      - "com.tutorial.health-check=http://localhost:3000/hello"
+      # Maintenance labels
+      - "com.tutorial.maintainer=Tutorial Authors"
+      - "com.tutorial.documentation=https://github.com/tutorial/nodejs-tutorial-backend"
+    
+    # Dependency Management
+    depends_on:
+      # Currently no dependencies, but structure for future services
+      # Example: database, cache, etc.
+      # database:
+      #   condition: service_healthy
+    
+    # Volume Configuration
+    # NO volumes mounted in production for security
+    # All application code is baked into the container image
+    # Configuration is handled via environment variables
+    
+    # Signal Handling
+    # The Dockerfile uses dumb-init for proper signal handling
+    # This ensures graceful shutdown on SIGTERM/SIGINT
+    stop_grace_period: 30s
+    stop_signal: SIGTERM
+
+# Network Configuration
+networks:
+  backend-network:
+    driver: bridge
+    name: nodejs-tutorial-network
+    # Network-level security configurations
+    driver_opts:
+      com.docker.network.bridge.name: "tutorial-br0"
+      com.docker.network.bridge.enable_icc: "true"
+      com.docker.network.bridge.enable_ip_masquerade: "true"
+    # Network labels for management
+    labels:
+      - "com.tutorial.network=backend"
+      - "com.tutorial.environment=production"
+
+# Volume Configuration
+# Currently no persistent volumes needed for the tutorial application
+# All data is stateless and ephemeral
+volumes:
+  # Reserved for future use (e.g., database data, logs, etc.)
+  # database_data:
+  #   driver: local
+  #   labels:
+  #     - "com.tutorial.volume=database"
+
+# Additional Configuration Comments:
+#
+# Environment File Setup:
+# 1. Copy .env.example to .env: cp ../../src/backend/.env.example .env
+# 2. Modify .env with production values:
+#    - Set NODE_ENV=production
+#    - Configure PORT if different from 3000
+#    - Set appropriate REQUEST_TIMEOUT_MS for production
+#    - Set LOG_LEVEL=warn or error for production
+#
+# Production Deployment:
+# 1. Build and start: docker-compose -f docker-compose.prod.yml up --build -d
+# 2. Check status: docker-compose -f docker-compose.prod.yml ps
+# 3. View logs: docker-compose -f docker-compose.prod.yml logs backend
+# 4. Stop gracefully: docker-compose -f docker-compose.prod.yml down
+#
+# Health Check Verification:
+# - Check health: docker-compose -f docker-compose.prod.yml exec backend wget -qO- http://localhost:3000/hello
+# - Monitor health: docker-compose -f docker-compose.prod.yml ps
+#
+# Security Verification:
+# - Verify non-root user: docker-compose -f docker-compose.prod.yml exec backend whoami
+# - Check process ownership: docker-compose -f docker-compose.prod.yml exec backend ps aux
+# - Verify read-only filesystem: docker-compose -f docker-compose.prod.yml exec backend touch /test-file
+#
+# Scaling (if needed):
+# - Scale instances: docker-compose -f docker-compose.prod.yml up --scale backend=3
+# - Note: Requires load balancer configuration for multiple instances
+#
+# Monitoring Integration:
+# - Container metrics: docker stats nodejs-tutorial-backend
+# - Application metrics: curl http://localhost:3000/hello
+# - Health status: docker inspect nodejs-tutorial-backend | grep Health

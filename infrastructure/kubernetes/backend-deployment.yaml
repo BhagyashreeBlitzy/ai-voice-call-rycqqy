@@ -1,0 +1,276 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: backend
+  labels:
+    app: nodejs-tutorial-backend
+    component: backend
+    version: v1.0.0
+    tier: backend
+    managed-by: kubernetes
+    environment: production
+  annotations:
+    description: "Manages the deployment of the Node.js tutorial backend pods running the Express.js HTTP server"
+    documentation: "https://github.com/nodejs-tutorial/backend/docs/deployment"
+    contact: "backend-team@nodejs-tutorial.com"
+    deployment.kubernetes.io/revision: "1"
+    kubernetes.io/change-cause: "Initial deployment of Node.js tutorial backend with Express.js v5.1.0"
+    educational-purpose: "Demonstrates production-ready Kubernetes Deployment patterns for Node.js applications"
+    config-version: "1.0"
+    last-updated: "2024-01-15T10:00:00Z"
+spec:
+  # High availability configuration with 2 replicas
+  # Ensures service continuity during pod failures and rolling updates
+  replicas: 2
+  
+  # Deployment strategy for zero-downtime updates
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      # Maximum number of pods that can be unavailable during update
+      maxUnavailable: 1
+      # Maximum number of pods that can be created above desired replica count
+      maxSurge: 1
+  
+  # Selector must match pod template labels for proper pod management
+  selector:
+    matchLabels:
+      app: nodejs-tutorial-backend
+      tier: backend
+  
+  # Pod template specification defining the container configuration
+  template:
+    metadata:
+      labels:
+        app: nodejs-tutorial-backend
+        tier: backend
+        component: backend
+        version: v1.0.0
+        environment: production
+      annotations:
+        # Pod-level annotations for monitoring and debugging
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "3000"
+        prometheus.io/path: "/metrics"
+        kubectl.kubernetes.io/default-container: "backend"
+        sidecar.istio.io/inject: "false"
+        
+    spec:
+      # Security context for the entire pod
+      securityContext:
+        # Run as non-root user group
+        runAsGroup: 1001
+        # Enable security features
+        seccompProfile:
+          type: RuntimeDefault
+        # Drop all capabilities by default
+        supplementalGroups: []
+        
+      # Container specification
+      containers:
+        - name: backend
+          # Container image built from src/backend/Dockerfile
+          image: nodejs-tutorial-backend:latest
+          imagePullPolicy: IfNotPresent
+          
+          # Container ports configuration
+          ports:
+            - name: http
+              containerPort: 3000
+              protocol: TCP
+          
+          # Environment variables from ConfigMap and Secret
+          envFrom:
+            # Non-sensitive configuration values
+            - configMapRef:
+                name: backend-config
+            # Sensitive configuration values
+            - secretRef:
+                name: backend-secrets
+          
+          # Additional environment variables for operational metadata
+          env:
+            - name: KUBERNETES_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: KUBERNETES_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: KUBERNETES_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: KUBERNETES_SERVICE_ACCOUNT
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.serviceAccountName
+          
+          # Resource requests and limits for proper resource management
+          resources:
+            requests:
+              # CPU request: 50 millicores (0.05 CPU)
+              # Ensures guaranteed CPU allocation for startup and basic operations
+              cpu: 50m
+              # Memory request: 128 MiB
+              # Sufficient for Node.js runtime and Express.js framework
+              memory: 128Mi
+            limits:
+              # CPU limit: 250 millicores (0.25 CPU)
+              # Prevents resource exhaustion while allowing burst capacity
+              cpu: 250m
+              # Memory limit: 512 MiB
+              # Provides headroom for application growth and garbage collection
+              memory: 512Mi
+          
+          # Liveness probe to detect and restart unhealthy containers
+          livenessProbe:
+            httpGet:
+              path: /hello
+              port: 3000
+              scheme: HTTP
+            # Allow 10 seconds for application startup
+            initialDelaySeconds: 10
+            # Check every 10 seconds
+            periodSeconds: 10
+            # Timeout for each probe request
+            timeoutSeconds: 5
+            # Restart after 3 consecutive failures
+            failureThreshold: 3
+            # Require 1 success to consider healthy
+            successThreshold: 1
+          
+          # Readiness probe to control traffic routing
+          readinessProbe:
+            httpGet:
+              path: /hello
+              port: 3000
+              scheme: HTTP
+            # Start checking readiness after 5 seconds
+            initialDelaySeconds: 5
+            # Check every 5 seconds
+            periodSeconds: 5
+            # Timeout for each probe request
+            timeoutSeconds: 5
+            # Remove from service after 3 consecutive failures
+            failureThreshold: 3
+            # Require 1 success to route traffic
+            successThreshold: 1
+          
+          # Startup probe for applications with longer startup times
+          startupProbe:
+            httpGet:
+              path: /hello
+              port: 3000
+              scheme: HTTP
+            # Allow up to 30 seconds for application startup
+            initialDelaySeconds: 5
+            # Check every 10 seconds
+            periodSeconds: 10
+            # Timeout for each probe request
+            timeoutSeconds: 5
+            # Allow up to 6 failures (60 seconds total)
+            failureThreshold: 6
+            # Require 1 success to consider started
+            successThreshold: 1
+          
+          # Security context for the container
+          securityContext:
+            # Run as the node user (UID 1000) as defined in Dockerfile
+            runAsUser: 1000
+            # Run as the nodejs group (GID 1001) as defined in Dockerfile
+            runAsGroup: 1001
+            # Never run as root
+            runAsNonRoot: true
+            # Make the root filesystem read-only
+            readOnlyRootFilesystem: true
+            # Drop all Linux capabilities
+            capabilities:
+              drop:
+                - ALL
+            # Disable privilege escalation
+            allowPrivilegeEscalation: false
+          
+          # Volume mounts for temporary storage
+          volumeMounts:
+            # Temporary directory for Node.js runtime
+            - name: tmp-volume
+              mountPath: /tmp
+            # Application cache directory
+            - name: cache-volume
+              mountPath: /usr/src/app/.cache
+      
+      # Volumes for temporary storage (required for read-only root filesystem)
+      volumes:
+        - name: tmp-volume
+          emptyDir:
+            # Use memory-backed storage for temporary files
+            medium: Memory
+            # Limit temporary storage to 64 MiB
+            sizeLimit: 64Mi
+        - name: cache-volume
+          emptyDir:
+            # Use disk-backed storage for application cache
+            medium: ""
+            # Limit cache storage to 128 MiB
+            sizeLimit: 128Mi
+      
+      # Pod restart policy
+      restartPolicy: Always
+      
+      # Termination grace period for graceful shutdown
+      terminationGracePeriodSeconds: 30
+      
+      # DNS policy for service discovery
+      dnsPolicy: ClusterFirst
+      
+      # Scheduling constraints and preferences
+      affinity:
+        # Anti-affinity to spread pods across different nodes
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app
+                      operator: In
+                      values:
+                        - nodejs-tutorial-backend
+                topologyKey: kubernetes.io/hostname
+      
+      # Tolerations for scheduling flexibility
+      tolerations:
+        # Allow scheduling on nodes with general workload taints
+        - key: node.kubernetes.io/not-ready
+          operator: Exists
+          effect: NoExecute
+          tolerationSeconds: 300
+        - key: node.kubernetes.io/unreachable
+          operator: Exists
+          effect: NoExecute
+          tolerationSeconds: 300
+      
+      # Priority class for pod scheduling
+      priorityClassName: ""
+      
+      # Service account for RBAC and security
+      serviceAccountName: default
+      
+      # Security context for the pod
+      automountServiceAccountToken: false
+      
+      # Enable sharing of process namespace
+      shareProcessNamespace: false
+      
+      # Hostname and subdomain configuration
+      hostname: ""
+      subdomain: ""
+      
+      # Node selector for targeted scheduling
+      nodeSelector: {}
+      
+      # Image pull secrets (if required for private registries)
+      imagePullSecrets: []
