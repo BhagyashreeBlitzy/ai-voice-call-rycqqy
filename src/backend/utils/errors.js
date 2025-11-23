@@ -144,13 +144,19 @@ function errorResponse(err, res, req = null) {
     const errorResponseBody = {
         error: true,
         message: normalizedError.message,
-        status: statusCode,
+        status: statusCode,  // Legacy key for backward compatibility
+        statusCode: statusCode,  // Standard key matching HTTP conventions
         timestamp: new Date().toISOString()
     };
     
-    // Include request path if available for client debugging assistance
-    if (req && req.path) {
-        errorResponseBody.path = req.path;
+    // Include request path and method if available for client debugging assistance
+    if (req) {
+        if (req.path) {
+            errorResponseBody.path = req.path;
+        }
+        if (req.method) {
+            errorResponseBody.method = req.method;
+        }
     }
     
     // Send a JSON response with secure error information

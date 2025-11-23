@@ -58,6 +58,17 @@ middlewareStack.forEach((middleware, index) => {
 // and provides proper route organization and error propagation
 app.use('/', router);
 
+// 404 catch-all handler for unknown routes
+// This middleware catches all requests that didn't match any route
+// and creates a proper 404 error to be handled by the error handler
+app.use((req, res, next) => {
+    const error = new Error('Route not found');
+    error.status = 404;
+    error.method = req.method;
+    error.path = req.path;
+    next(error);
+});
+
 // Mount request timeout error handler
 // This middleware specifically handles request timeout errors
 // Must be mounted after all routes but before the main error handler
