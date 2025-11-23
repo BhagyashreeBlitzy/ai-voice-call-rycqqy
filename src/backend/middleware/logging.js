@@ -88,7 +88,7 @@ function requestLoggerMiddleware(req, res, next) {
         // Create metadata object for structured logging with additional context
         const logMetadata = {
             requestId: req.headers['x-request-id'] || 'unknown', // Request correlation ID if available
-            remoteAddress: req.ip || req.connection.remoteAddress || 'unknown', // Client IP address
+            remoteAddress: req.ip || req.connection?.remoteAddress || 'unknown', // Client IP address (optional chaining for safety)
             method: method,
             url: url,
             statusCode: statusCode,
