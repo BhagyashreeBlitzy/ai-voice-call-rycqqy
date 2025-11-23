@@ -1,8 +1,7 @@
 // Jest testing framework for mocking and global setup hooks
-const jest = require('jest'); // v29.x
 
 // Import logger utility to be stubbed/spied on during tests
-const { logger } = require('../../utils/logger.js');
+const { logger } = require('../utils/logger.js');
 
 // Global variables to store original logger methods for restoration after tests
 let originalLoggerInfo;
