@@ -30,7 +30,7 @@ describe('requestLoggerMiddleware', () => {
         
         // Mock consistent timing for predictable test results
         mockStartTime = 1000000000000000n; // Start time in nanoseconds
-        mockEndTime = 1000000000050000n;   // End time in nanoseconds (50ms later)
+        mockEndTime = 1000000050000000n;   // End time in nanoseconds (50ms later - 50,000,000 ns = 50ms)
     });
 
     beforeEach(() => {
@@ -535,7 +535,7 @@ describe('requestLoggerMiddleware', () => {
         it('calculates response time correctly', (done) => {
             // Test accurate response time calculation using high-resolution timer
             const startNs = 1000000000000000n;
-            const endNs = 1000000000100000n; // 100ms later
+            const endNs = 1000000100000000n; // 100ms later (100,000,000 ns = 100ms)
             
             let callCount = 0;
             process.hrtime.bigint = jest.fn(() => {
@@ -561,7 +561,7 @@ describe('requestLoggerMiddleware', () => {
         it('handles high-resolution timing precision', (done) => {
             // Test handling of nanosecond precision timing
             const startNs = 1000000000000000n;
-            const endNs = 1000000000001500n; // 1.5ms later
+            const endNs = 1000000001500000n; // 1.5ms later (1,500,000 ns = 1.5ms)
             
             let callCount = 0;
             process.hrtime.bigint = jest.fn(() => {
