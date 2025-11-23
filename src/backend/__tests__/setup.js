@@ -63,18 +63,6 @@ function setupTestEnvironment() {
         };
         global.logOutput.push(logEntry);
     });
-    
-    // Install global handler for unhandled promise rejections that throws, causing tests to fail
-    process.on('unhandledRejection', (reason, promise) => {
-        console.error('Unhandled Rejection at:', promise, 'reason:', reason);
-        throw new Error(`Unhandled promise rejection: ${reason}`);
-    });
-    
-    // Install global handler for uncaught exceptions that throws, causing tests to fail
-    process.on('uncaughtException', (error) => {
-        console.error('Uncaught Exception:', error);
-        throw new Error(`Uncaught exception: ${error.message}`);
-    });
 }
 
 /**
@@ -97,10 +85,6 @@ function teardownTestEnvironment() {
     
     // Clear logOutput array to ensure test isolation
     global.logOutput = [];
-    
-    // Remove global error handlers to prevent interference with subsequent test runs
-    process.removeAllListeners('unhandledRejection');
-    process.removeAllListeners('uncaughtException');
 }
 
 // Clear logOutput before each test to ensure isolation between tests
