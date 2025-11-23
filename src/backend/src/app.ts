@@ -77,7 +77,7 @@ export class App {
       maxAge: 900 // 15 minutes
     }));
 
-    // Request compression
+    // Request compress
     this.express.use(compression());
 
     // Request logging with correlation IDs
