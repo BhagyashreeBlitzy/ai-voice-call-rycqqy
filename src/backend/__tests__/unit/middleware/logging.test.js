@@ -1,5 +1,4 @@
 // Jest testing framework for test structure, mocking, and assertions
-const jest = require('jest'); // latest
 
 // Mock HTTP request and response objects for middleware testing
 const httpMocks = require('node-mocks-http'); // ^1.11.0 - Creates mock Express req/res objects for isolated testing

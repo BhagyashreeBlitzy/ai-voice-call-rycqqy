@@ -1,5 +1,4 @@
 // Jest testing framework for comprehensive unit testing
-const jest = require('jest'); // v29.7.0 - Latest stable version with comprehensive mocking capabilities
 
 // Import the middleware and error handler functions under test
 const { requestTimeout, handleTimeoutError } = require('../../../middleware/requestTimeout.js');

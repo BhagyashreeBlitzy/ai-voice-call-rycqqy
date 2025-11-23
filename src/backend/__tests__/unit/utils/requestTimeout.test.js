@@ -1,5 +1,4 @@
 // Test framework and utilities
-const jest = require('jest'); // ^29.0.0
 
 // Internal imports for testing the request timeout utility
 const { 

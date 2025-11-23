@@ -1,5 +1,4 @@
 // Jest testing framework v29.x for test structure and mocking
-const jest = require('jest');
 // Supertest v7.1.1 for HTTP endpoint testing and assertions
 const supertest = require('supertest');
 

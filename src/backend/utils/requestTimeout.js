@@ -1,6 +1,5 @@
 // Built-in Node.js AbortController for request timeout management
-// AbortController is available natively in Node.js v18+
-const { AbortController } = require('node:abort-controller');
+// AbortController is available natively in Node.js v18+ as a global
 
 // Internal utilities for error handling and logging
 const { AppError } = require('./errors.js');

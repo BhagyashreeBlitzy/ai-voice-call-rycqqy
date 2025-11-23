@@ -1,5 +1,4 @@
 // Jest testing framework for test structure and assertions
-const jest = require('jest'); // v29.x
 
 // Supertest for HTTP assertions and integration testing
 const request = require('supertest'); // v7.1.1

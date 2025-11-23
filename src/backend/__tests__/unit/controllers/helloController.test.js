@@ -1,5 +1,4 @@
 // Jest testing framework for unit testing and mocking - v29.x
-const jest = require('jest');
 
 // Import the helloController function under test
 const { helloController } = require('../../../controllers/helloController.js');
