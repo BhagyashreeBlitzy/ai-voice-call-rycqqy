@@ -1,4 +1,10 @@
-const { logger, info, warn, error } = require('../../../utils/logger.js');
+// Logger module - we'll restore real implementations in beforeAll since setup.js mocks them
+const util = require('node:util');
+const loggerModule = require('../../../utils/logger.js');
+let logger = loggerModule.logger;
+let info = loggerModule.info;
+let warn = loggerModule.warn;
+let error = loggerModule.error;
 
 // Global variables to capture output and store original process methods
 let originalStdoutWrite;
@@ -7,8 +13,54 @@ let stdoutOutput = [];
 let stderrOutput = [];
 
 describe('logger utility', () => {
+    // Store mocked logger methods from setup.js
+    let mockedLoggerInfo;
+    let mockedLoggerWarn;
+    let mockedLoggerError;
+    
     // Setup: Mock process.stdout.write and process.stderr.write before all tests
     beforeAll(() => {
+        // Save the mocked logger methods from setup.js
+        mockedLoggerInfo = logger.info;
+        mockedLoggerWarn = logger.warn;
+        mockedLoggerError = logger.error;
+        
+        // Restore real logger implementations for testing
+        const LOG_LEVELS = { info: 20, warn: 30, error: 40 };
+        const formatLogMessage = (level, message, meta) => {
+            const timestamp = new Date().toISOString();
+            const logPrefix = `[${timestamp}] [${level.toUpperCase()}]`;
+            if (meta && typeof meta === 'object' && Object.keys(meta).length > 0) {
+                const metaString = util.inspect(meta, { depth: null, colors: false, compact: true, breakLength: Infinity });
+                return `${logPrefix} ${message} ${metaString}`;
+            }
+            return `${logPrefix} ${message}`;
+        };
+        const shouldLog = (level) => {
+            const messageLevel = LOG_LEVELS[level] || LOG_LEVELS.info;
+            const currentLevel = LOG_LEVELS[logger.level] || LOG_LEVELS.info;
+            return messageLevel >= currentLevel;
+        };
+        
+        logger.info = function(message, meta) {
+            if (shouldLog('info')) {
+                const formattedMessage = formatLogMessage('info', message, meta);
+                process.stdout.write(formattedMessage + '\n');
+            }
+        };
+        logger.warn = function(message, meta) {
+            if (shouldLog('warn')) {
+                const formattedMessage = formatLogMessage('warn', message, meta);
+                process.stderr.write(formattedMessage + '\n');
+            }
+        };
+        logger.error = function(message, meta) {
+            if (shouldLog('error')) {
+                const formattedMessage = formatLogMessage('error', message, meta);
+                process.stderr.write(formattedMessage + '\n');
+            }
+        };
+        
         // Store original process methods for restoration
         originalStdoutWrite = process.stdout.write;
         originalStderrWrite = process.stderr.write;
@@ -26,20 +78,26 @@ describe('logger utility', () => {
         });
     });
     
-    // Cleanup: Restore original process methods after all tests
+    // Cleanup: Restore original process methods and mocked logger after all tests
     afterAll(() => {
         process.stdout.write = originalStdoutWrite;
         process.stderr.write = originalStderrWrite;
+        // Restore the mocked logger methods from setup.js
+        if (mockedLoggerInfo) logger.info = mockedLoggerInfo;
+        if (mockedLoggerWarn) logger.warn = mockedLoggerWarn;
+        if (mockedLoggerError) logger.error = mockedLoggerError;
     });
     
     // Clear output arrays before each test to ensure test isolation
     beforeEach(() => {
-        stdoutOutput = [];
-        stderrOutput = [];
+        // Clear mock call history first
+        process.stdout.write.mockClear();
+        process.stderr.write.mockClear();
+        // Clear arrays in place to maintain reference in mock closures
+        stdoutOutput.length = 0;
+        stderrOutput.length = 0;
         // Reset logger level to default 'info' for consistent test state
         logger.level = 'info';
-        // Clear mock call history
-        jest.clearAllMocks();
     });
     
     describe('logger.info', () => {

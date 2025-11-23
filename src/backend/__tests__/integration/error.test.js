@@ -1,6 +1,5 @@
 // External dependencies for HTTP integration testing
 const request = require('supertest'); // supertest@^7.1.1 - HTTP assertions for Express.js endpoints
-const { jest } = require('@jest/globals'); // jest@latest - Testing framework with mocking capabilities
 
 // Internal dependencies - Application modules under test
 const { app } = require('../../app.js'); // Express application instance for integration testing

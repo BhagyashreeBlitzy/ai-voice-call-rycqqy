@@ -432,7 +432,9 @@ describe('errorResponse', () => {
         // Test with minimal request object missing optional properties
         const minimalReq = {
             method: 'POST',
-            path: '/minimal'
+            path: '/minimal',
+            get: jest.fn(() => undefined),
+            connection: {}
         };
         const error = new AppError('Minimal request test', 422);
         
@@ -465,13 +467,15 @@ describe('errorResponse', () => {
         const reqWithoutPath = {
             method: 'DELETE',
             originalUrl: '/no/path',
-            url: '/no/path'
+            url: '/no/path',
+            get: jest.fn(() => undefined),
+            connection: {}
         };
         delete reqWithoutPath.path;
         
         const error = new AppError('No path test', 404);
         
-        errorResponse(error, reqWithoutPath, mockRes);
+        errorResponse(error, mockRes, reqWithoutPath);
 
         const response = mockRes.json.mock.calls[0][0];
         expect(response.path).toBeUndefined();

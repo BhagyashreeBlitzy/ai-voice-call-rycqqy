@@ -1,5 +1,4 @@
 // Jest testing framework for unit testing and mocking - v29.x
-const jest = require('jest');
 
 // Import the errorHandler middleware under test
 const { errorHandler } = require('../../../middleware/errorHandler.js');

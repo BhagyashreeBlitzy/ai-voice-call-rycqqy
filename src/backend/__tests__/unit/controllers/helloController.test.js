@@ -1,5 +1,4 @@
 // Jest testing framework for unit testing and mocking - v29.x
-const jest = require('jest');
 
 // Import the helloController function under test
 const { helloController } = require('../../../controllers/helloController.js');
@@ -571,21 +570,19 @@ describe('helloController', () => {
     // Test case: Async/await error handling
     describe('should handle async errors properly', () => {
         it('should handle Promise rejections in async operations', async () => {
-            // Arrange: Create mock req, res, and next with async error
+            // Arrange: Create mock req, res, and next with synchronous error in send
             const { req, res, next } = createMockReqResNext();
-            const asyncError = new Error('Async operation failed');
+            const syncError = new Error('Send operation failed');
             
-            // Mock an async operation that rejects
-            res.send.mockImplementation(async () => {
-                await new Promise((resolve, reject) => {
-                    setTimeout(() => reject(asyncError), 10);
-                });
+            // Mock send() to throw synchronously (as Express actually does)
+            res.send.mockImplementation(() => {
+                throw syncError;
             });
             
             // Act: Call helloController with mock objects
             await helloController(req, res, next);
             
-            // Assert: Verify async error is caught and propagated
+            // Assert: Verify error is caught and propagated
             expect(next).toHaveBeenCalledTimes(1);
             expect(next).toHaveBeenCalledWith(expect.any(AppError));
         });

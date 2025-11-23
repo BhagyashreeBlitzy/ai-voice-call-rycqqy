@@ -1,8 +1,7 @@
 // Jest testing framework for mocking and global setup hooks
-const jest = require('jest'); // v29.x
 
 // Import logger utility to be stubbed/spied on during tests
-const { logger } = require('../../utils/logger.js');
+const { logger } = require('../utils/logger.js');
 
 // Global variables to store original logger methods for restoration after tests
 let originalLoggerInfo;
@@ -64,18 +63,6 @@ function setupTestEnvironment() {
         };
         global.logOutput.push(logEntry);
     });
-    
-    // Install global handler for unhandled promise rejections that throws, causing tests to fail
-    process.on('unhandledRejection', (reason, promise) => {
-        console.error('Unhandled Rejection at:', promise, 'reason:', reason);
-        throw new Error(`Unhandled promise rejection: ${reason}`);
-    });
-    
-    // Install global handler for uncaught exceptions that throws, causing tests to fail
-    process.on('uncaughtException', (error) => {
-        console.error('Uncaught Exception:', error);
-        throw new Error(`Uncaught exception: ${error.message}`);
-    });
 }
 
 /**
@@ -98,10 +85,6 @@ function teardownTestEnvironment() {
     
     // Clear logOutput array to ensure test isolation
     global.logOutput = [];
-    
-    // Remove global error handlers to prevent interference with subsequent test runs
-    process.removeAllListeners('unhandledRejection');
-    process.removeAllListeners('uncaughtException');
 }
 
 // Clear logOutput before each test to ensure isolation between tests

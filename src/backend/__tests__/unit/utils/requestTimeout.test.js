@@ -1,5 +1,4 @@
 // Test framework and utilities
-const jest = require('jest'); // ^29.0.0
 
 // Internal imports for testing the request timeout utility
 const { 
@@ -10,8 +9,8 @@ const {
 const { AppError } = require('../../../utils/errors.js');
 const { logger } = require('../../../utils/logger.js');
 
-// Built-in Node.js AbortController for testing timeout enforcement
-const { AbortController } = require('node:abort-controller'); // builtin (Node.js v18+)
+// Built-in Node.js AbortController is available as a global in Node.js v18+
+// No require statement needed - AbortController is a global object
 
 // Global test constants
 const MOCK_TIMEOUT_MS = 50;

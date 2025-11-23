@@ -1,5 +1,4 @@
 // Jest testing framework v29.7.0 - Test runner and mocking framework
-const { jest } = require('@jest/globals');
 
 // Internal imports - functions and classes under test
 const { shutdown, setupShutdownHooks } = require('../../../utils/shutdown.js');

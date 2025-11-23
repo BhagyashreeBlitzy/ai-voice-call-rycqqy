@@ -22,20 +22,72 @@ const { logger, setupShutdownHooks } = require('./utils'); // Logging and gracef
 const { getMiddlewareStack, handleTimeoutError, errorHandler } = require('./middleware'); // Middleware stack and error handling
 const { router } = require('./routes'); // Main API router with all endpoints
 
+// Initialize Express application instance immediately for testability
+// The app is created at module load time to allow tests to import and use it
+// without needing to call the main() function first
+const app = express();
+
+// Disable Express.js powered-by header for security
+// This prevents disclosure of the Express.js framework version
+app.disable('x-powered-by');
+
+// Load server configuration with defaults for testing scenarios
+// In production, this will be overridden by environment-specific config
+const config = getServerConfig();
+
+// Apply core middleware stack in security-first order
+// The middleware stack is carefully ordered for optimal security and performance:
+// 1. Security headers (helmet + CORS) - must be first for protection
+// 2. Request logging - observability for all requests
+// 3. Compression - performance optimization
+// 4. Request timeout - resource protection
+const middlewareStack = getMiddlewareStack({
+    timeoutMs: config.requestTimeoutMs,
+    enableLogging: true,
+    enableCompression: true,
+    enableTimeout: true
+});
+
+// Apply all middleware functions to the Express app
+middlewareStack.forEach((middleware, index) => {
+    app.use(middleware);
+});
+
+// Mount main API router at root path
+// The router aggregates all endpoint handlers (currently /hello)
+// and provides proper route organization and error propagation
+app.use('/', router);
+
+// 404 catch-all handler for unknown routes
+// This middleware catches all requests that didn't match any route
+// and creates a proper 404 error to be handled by the error handler
+app.use((req, res, next) => {
+    const error = new Error('Route not found');
+    error.status = 404;
+    error.method = req.method;
+    error.path = req.path;
+    next(error);
+});
+
+// Mount request timeout error handler
+// This middleware specifically handles request timeout errors
+// Must be mounted after all routes but before the main error handler
+app.use(handleTimeoutError);
+
+// Mount centralized error handling middleware
+// This must be the last middleware in the Express application
+// Handles all errors from routes and middleware with secure response generation
+app.use(errorHandler);
+
 // Application globals for server lifecycle management
-let app = null; // Express application instance
 let server = null; // HTTP server instance
-let config = null; // Server configuration object
 
 /**
  * Main application bootstrap function
- * Initializes and starts the Node.js tutorial backend server with comprehensive
- * configuration, middleware setup, route mounting, and graceful shutdown handling.
+ * Starts the HTTP server and sets up graceful shutdown handling.
+ * The Express app is pre-configured at module load time to enable testing.
  * 
- * This function demonstrates production-ready server initialization patterns:
- * - Centralized configuration loading and validation
- * - Ordered middleware application for security, logging, and performance
- * - Proper error handling and timeout management
+ * This function demonstrates production-ready server startup patterns:
  * - HTTP server creation with lifecycle management
  * - Graceful shutdown with signal handling
  * - Comprehensive logging for observability and debugging
@@ -45,106 +97,28 @@ let config = null; // Server configuration object
  * 
  * @async
  * @function main
- * @throws {Error} When server initialization fails or configuration is invalid
+ * @throws {Error} When server startup fails
  * @returns {Promise<void>} Resolves when server is successfully started and configured
  */
 async function main() {
     try {
-        // Step 1: Load and validate server configuration
-        // Configuration includes port binding, environment settings, and request timeout
-        // Uses centralized config module for consistency and maintainability
-        logger.info('Initializing Node.js tutorial backend server', {
+        // Step 1: Log server initialization start
+        logger.info('Starting Node.js tutorial backend server', {
             nodeVersion: process.version,
             platform: process.platform,
             environment: process.env.NODE_ENV || 'development',
-            action: 'server_initialization_start'
+            action: 'server_startup_start'
         });
 
-        // Load server configuration with validation and defaults
-        config = getServerConfig();
-        
-        logger.info('Server configuration loaded successfully', {
+        logger.info('Express application already configured', {
+            expressVersion: '5.1.0',
             port: config.port,
             environment: config.env,
             requestTimeoutMs: config.requestTimeoutMs,
-            action: 'configuration_loaded'
+            action: 'app_pre_configured'
         });
 
-        // Step 2: Create Express application instance
-        // Express.js v5.1.0 provides enhanced async/await support and automatic
-        // Promise rejection forwarding to error handling middleware
-        app = express();
-
-        // Disable Express.js powered-by header for security
-        // This prevents disclosure of the Express.js framework version
-        app.disable('x-powered-by');
-
-        logger.info('Express application instance created', {
-            expressVersion: '5.1.0',
-            features: ['async_await_support', 'promise_rejection_handling', 'security_enhancements'],
-            action: 'express_app_created'
-        });
-
-        // Step 3: Apply core middleware stack in security-first order
-        // The middleware stack is carefully ordered for optimal security and performance:
-        // 1. Security headers (helmet + CORS) - must be first for protection
-        // 2. Request logging - observability for all requests
-        // 3. Compression - performance optimization
-        // 4. Request timeout - resource protection
-        const middlewareStack = getMiddlewareStack({
-            timeoutMs: config.requestTimeoutMs,
-            enableLogging: true,
-            enableCompression: true,
-            enableTimeout: true
-        });
-
-        // Apply all middleware functions to the Express app
-        middlewareStack.forEach((middleware, index) => {
-            app.use(middleware);
-        });
-
-        logger.info('Core middleware stack applied successfully', {
-            middlewareCount: middlewareStack.length,
-            order: ['security', 'logging', 'compression', 'timeout'],
-            requestTimeoutMs: config.requestTimeoutMs,
-            action: 'middleware_stack_applied'
-        });
-
-        // Step 4: Mount main API router at root path
-        // The router aggregates all endpoint handlers (currently /hello)
-        // and provides proper route organization and error propagation
-        app.use('/', router);
-
-        logger.info('Main API router mounted successfully', {
-            basePath: '/',
-            endpoints: ['/hello'],
-            routerType: 'main_api_router',
-            action: 'router_mounted'
-        });
-
-        // Step 5: Mount request timeout error handler
-        // This middleware specifically handles request timeout errors
-        // Must be mounted after all routes but before the main error handler
-        app.use(handleTimeoutError);
-
-        logger.info('Request timeout error handler mounted', {
-            position: 'after_routes',
-            purpose: 'timeout_error_processing',
-            action: 'timeout_error_handler_mounted'
-        });
-
-        // Step 6: Mount centralized error handling middleware
-        // This must be the last middleware in the Express application
-        // Handles all errors from routes and middleware with secure response generation
-        app.use(errorHandler);
-
-        logger.info('Centralized error handler mounted', {
-            position: 'last_middleware',
-            purpose: 'error_normalization_and_response',
-            action: 'error_handler_mounted'
-        });
-
-        // Step 7: Create HTTP server using Node.js HTTP module
+        // Step 2: Create HTTP server using Node.js HTTP module
         // Using the native http module allows for advanced server lifecycle management
         // and provides better control over server events and graceful shutdown
         server = http.createServer(app);
@@ -160,7 +134,7 @@ async function main() {
             action: 'http_server_created'
         });
 
-        // Step 8: Start server listening on configured port
+        // Step 3: Start server listening on configured port
         // Wrap server.listen in Promise for async/await compatibility
         // and comprehensive error handling during server startup
         await new Promise((resolve, reject) => {
@@ -199,7 +173,7 @@ async function main() {
             });
         });
 
-        // Step 9: Set up graceful shutdown handling
+        // Step 4: Set up graceful shutdown handling
         // Register process signal handlers for SIGTERM and SIGINT
         // Ensures proper cleanup and connection termination on server shutdown
         setupShutdownHooks(server);
@@ -210,7 +184,7 @@ async function main() {
             action: 'shutdown_hooks_registered'
         });
 
-        // Step 10: Handle uncaught exceptions and unhandled promise rejections
+        // Step 5: Handle uncaught exceptions and unhandled promise rejections
         // These global error handlers ensure the process exits gracefully
         // even if unexpected errors occur outside the normal request cycle
         process.on('uncaughtException', (error) => {
